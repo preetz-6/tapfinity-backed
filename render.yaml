@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: tapfinity-backed
+    env: python
+    buildCommand: ""
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT

@@ -1,0 +1,59 @@
+<div class="navbar">
+    <div class="nav-left">
+        <a class="logo" href="/">Tap-Finity</a>
+    </div>
+
+    <div class="nav-right">
+        <a href="/">Home</a>
+        <a href="/features">Features</a>
+        <a href="/about">About</a>
+        <a href="/contact">Contact</a>
+        <a href="/student_login" class="login-btn">Student Login</a>
+        <a href="/admin_login" class="login-btn">Admin Login</a>
+    </div>
+</div>
+
+<style>
+.navbar {
+    width: 100%;
+    background: white;
+    padding: 15px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+}
+
+.nav-left .logo {
+    font-size: 22px;
+    font-weight: 700;
+    color: #007aff;
+    text-decoration: none;
+}
+
+.nav-right a {
+    margin-left: 18px;
+    font-size: 16px;
+    color: #333;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.nav-right a:hover {
+    color: #007aff;
+}
+
+.login-btn {
+    padding: 8px 14px;
+    background: #007aff;
+    color: white !important;
+    border-radius: 8px;
+}
+
+.login-btn:hover {
+    background: #005fcc;
+}
+</style>

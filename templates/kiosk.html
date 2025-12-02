@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tap-Finity Kiosk</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            background: #f0f3f8;
+            text-align: center;
+        }
+
+        .container {
+            padding: 30px;
+        }
+
+        .title {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 18px;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .card-box {
+            background: white;
+            width: 300px;
+            margin: auto;
+            padding: 25px;
+            border-radius: 18px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .status-msg {
+            font-size: 20px;
+            color: #007aff;
+            font-weight: 600;
+            margin-top: 15px;
+        }
+
+        input {
+            padding: 12px;
+            font-size: 18px;
+            width: 230px;
+            border-radius: 12px;
+            border: 1px solid #aaa;
+            margin-top: 12px;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            font-size: 18px;
+            background: #007aff;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 12px;
+        }
+
+        #student_info {
+            display: none;
+            margin-top: 20px;
+        }
+
+        #student_photo {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #ddd;
+        }
+
+        .name {
+            font-size: 24px;
+            color: #333;
+            margin-top: 10px;
+            font-weight: 600;
+        }
+
+        /* --- KEYPAD --- */
+        .keypad {
+            width: 260px;
+            margin: 20px auto;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .key {
+            background: white;
+            padding: 18px 0;
+            border-radius: 12px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            font-size: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .key:active {
+            background: #e5e5e5;
+        }
+
+        .wide {
+            grid-column: span 2;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="title">Tap-Finity Kiosk</div>
+    <div class="subtitle">(Testing Mode — Enter UID Manually)</div>
+
+    <div class="card-box">
+        <img src="https://cdn-icons-png.flaticon.com/512/761/761767.png" width="120">
+
+        <input id="manual_uid" placeholder="Enter UID">
+        <button class="btn" onclick="fetchStudent()">Submit</button>
+
+        <div id="status_msg" class="status-msg">Waiting for UID...</div>
+    </div>
+
+    <div id="student_info">
+        <img id="student_photo">
+        <div class="name" id="student_name"></div>
+
+        <input id="amount" type="text" placeholder="Enter Amount" readonly>
+
+        <!-- NUMERIC KEYPAD -->
+        <div class="keypad">
+            <div class="key" onclick="pressKey('1')">1</div>
+            <div class="key" onclick="pressKey('2')">2</div>
+            <div class="key" onclick="pressKey('3')">3</div>
+
+            <div class="key" onclick="pressKey('4')">4</div>
+            <div class="key" onclick="pressKey('5')">5</div>
+            <div class="key" onclick="pressKey('6')">6</div>
+
+            <div class="key" onclick="pressKey('7')">7</div>
+            <div class="key" onclick="pressKey('8')">8</div>
+            <div class="key" onclick="pressKey('9')">9</div>
+
+            <div class="key" onclick="clearAmount()">Clear</div>
+            <div class="key" onclick="pressKey('0')">0</div>
+            <div class="key" onclick="backspace()">⌫</div>
+        </div>
+
+        <button class="btn" onclick="makePayment()">Pay</button>
+    </div>
+
+</div>
+
+<script>
+const BASE = "http://localhost:5001";
+let currentUID = null;
+
+// --- KEYPAD LOGIC ---
+function pressKey(num) {
+    const amt = document.getElementById("amount");
+    amt.value = amt.value + num;
+}
+
+function clearAmount() {
+    document.getElementById("amount").value = "";
+}
+
+function backspace() {
+    let amt = document.getElementById("amount");
+    amt.value = amt.value.slice(0, -1);
+}
+
+// STEP 1 — FETCH STUDENT BY UID
+function fetchStudent() {
+    let uid = document.getElementById("manual_uid").value;
+
+    if (!uid) {
+        document.getElementById("status_msg").textContent = "Enter a valid UID!";
+        return;
+    }
+
+    currentUID = uid;
+    document.getElementById("status_msg").textContent = "Fetching student...";
+
+    fetch(BASE + "/api/student/" + uid)
+        .then(r => r.json())
+        .then(data => {
+            if (data.status !== "success") {
+                document.getElementById("status_msg").textContent = "Student not found!";
+                return;
+            }
+
+            let stu = data.student;
+
+            document.getElementById("student_name").textContent = stu.name;
+
+            if (stu.photo) {
+                document.getElementById("student_photo").src = "/static/photos/" + stu.photo;
+            } else {
+                document.getElementById("student_photo").src = "https://via.placeholder.com/120";
+            }
+
+            document.getElementById("student_info").style.display = "block";
+            document.getElementById("status_msg").textContent = "Student Loaded!";
+        });
+}
+
+// STEP 2 — MAKE PAYMENT
+function makePayment() {
+    let amt = parseFloat(document.getElementById("amount").value);
+
+    if (!amt || amt <= 0) {
+        alert("Enter a valid amount!");
+        return;
+    }
+
+    fetch(BASE + "/api/pay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uid: currentUID, amount: amt })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === "success") {
+            alert("Payment Successful!");
+            resetKiosk();
+        } else {
+            alert("Payment Failed: " + data.message);
+        }
+    });
+}
+
+// RESET
+function resetKiosk() {
+    currentUID = null;
+    document.getElementById("student_info").style.display = "none";
+    document.getElementById("manual_uid").value = "";
+    document.getElementById("amount").value = "";
+    document.getElementById("status_msg").textContent = "Waiting for UID...";
+}
+</script>
+
+</body>
+</html>

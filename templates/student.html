@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Student Dashboard</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            background: #f2f2f7;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .profile-pic {
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #ddd;
+            margin-bottom: 10px;
+        }
+
+        .title {
+            font-size: 26px;
+            font-weight: 700;
+            color: #111;
+        }
+
+        .settings-icon {
+            position: absolute;
+            right: 10px;
+            top: 5px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #444;
+        }
+
+        .settings-icon:hover {
+            color: #000;
+        }
+
+        .balance-card {
+            background: white;
+            border-radius: 18px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 18px rgba(0,0,0,0.10);
+        }
+
+        .balance-label {
+            font-size: 15px;
+            color: #888;
+        }
+
+        .balance-value {
+            font-size: 40px;
+            font-weight: 700;
+            margin-top: 8px;
+            color: #111;
+        }
+
+        .status-box {
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .section-title {
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            color: #333;
+        }
+
+        .tx-card {
+            background: white;
+            border-radius: 14px;
+            padding: 15px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .tx-amount {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .tx-status {
+            font-size: 14px;
+            color: #555;
+        }
+
+        .tx-time {
+            font-size: 12px;
+            color: #999;
+        }
+    </style>
+</head>
+
+<body>
+<div class="container">
+
+    <div class="header">
+        <div class="settings-icon" onclick="openSettings()">⚙️</div>
+        <img id="profile_photo" class="profile-pic" src="" alt="Profile">
+        <div class="title" id="student_name">Loading...</div>
+    </div>
+
+    <div id="balance_card" class="balance-card">
+        <div class="balance-label">Available Balance</div>
+        <div class="balance-value" id="balance_value">₹0</div>
+    </div>
+
+    <div id="status_box" class="status-box"></div>
+
+    <h3 class="section-title">Recent Transactions</h3>
+    <div id="transactions_list"></div>
+
+</div>
+
+<script>
+const BASE = "http://localhost:5001";
+
+// Fetch uid from URL
+function getQueryParam(param) {
+    let url = new URL(window.location.href);
+    return url.searchParams.get(param);
+}
+
+function loadStudent() {
+    let uid = getQueryParam("uid");
+
+    fetch(`${BASE}/api/student/${uid}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.status !== "success") {
+                alert("Student not found");
+                return;
+            }
+
+            let stu = data.student;
+            let tx = data.transactions;
+
+            // Set Name
+            document.getElementById("student_name").textContent = stu.name;
+
+            // Set Photo
+            if (stu.photo && stu.photo !== "none") {
+                document.getElementById("profile_photo").src = "/static/photos/" + stu.photo;
+            } else {
+                document.getElementById("profile_photo").src = "https://via.placeholder.com/110?text=No+Photo";
+            }
+
+            // Set Balance
+            document.getElementById("balance_value").textContent = "₹" + stu.balance;
+
+            // Card status
+            let statusBox = document.getElementById("status_box");
+            if (stu.blocked == 1) {
+                statusBox.style.background = "#ffe5e7";
+                statusBox.style.color = "#b00020";
+                statusBox.textContent = "Card Status: BLOCKED";
+            } else {
+                statusBox.style.background = "#e5f7ee";
+                statusBox.style.color = "#09814a";
+                statusBox.textContent = "Card Status: ACTIVE";
+            }
+
+            // Transactions list
+            let html = "";
+            tx.forEach(t => {
+                html += `
+                    <div class="tx-card">
+                        <div>
+                            <div class="tx-amount">₹ ${t.amount}</div>
+                            <div class="tx-status">${t.status}</div>
+                        </div>
+                        <div class="tx-time">${t.timestamp}</div>
+                    </div>
+                `;
+            });
+
+            document.getElementById("transactions_list").innerHTML = html;
+        });
+}
+
+function openSettings() {
+    let uid = getQueryParam("uid");
+    window.location.href = "/student_settings?uid=" + uid;
+}
+
+loadStudent();
+</script>
+
+</body>
+</html>

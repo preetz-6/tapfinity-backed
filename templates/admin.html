@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tap-Finity Admin Dashboard</title>
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            background: #eef1f7;
+        }
+
+        .topbar {
+            width: 100%;
+            background: #007aff;
+            color: white;
+            padding: 15px 20px;
+            font-size: 22px;
+            font-weight: 600;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logout-btn {
+            background: white;
+            color: #007aff;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .container {
+            max-width: 480px;
+            margin: auto;
+            padding: 20px;
+        }
+
+        .section-card {
+            background: white;
+            border-radius: 20px;
+            padding: 22px;
+            margin-bottom: 20px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 14px;
+            color: #333;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid #ccc;
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #007aff;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .danger-btn {
+            background: #ff3b30 !important;
+        }
+
+        .success-box, .error-box {
+            padding: 12px;
+            border-radius: 12px;
+            font-weight: 600;
+            margin-bottom: 18px;
+            display: none;
+        }
+
+        .success-box { background: #e8f9ee; color: #0a7a43; }
+        .error-box { background: #ffe9ea; color: #c7162b; }
+    </style>
+</head>
+
+<body>
+
+<div class="topbar">
+    Tap-Finity Admin
+    <button class="logout-btn" onclick="logout()">Logout</button>
+</div>
+
+<div class="container">
+
+    <div id="success" class="success-box"></div>
+    <div id="error" class="error-box"></div>
+
+    <!-- ADD STUDENT -->
+    <div class="section-card">
+        <div class="section-title">Add Student</div>
+
+        <input id="add_uid" placeholder="UID">
+        <input id="add_name" placeholder="Name">
+        <input id="add_balance" type="number" placeholder="Initial Balance">
+
+        <input type="file" id="add_photo" accept="image/*">
+
+        <button onclick="addStudent()">Add Student</button>
+    </div>
+
+    <!-- ADD BALANCE -->
+    <div class="section-card">
+        <div class="section-title">Add Balance</div>
+        <input id="bal_uid" placeholder="UID">
+        <input id="bal_amt" type="number" placeholder="Amount">
+        <button onclick="addBalance()">Add Balance</button>
+    </div>
+
+    <!-- BLOCK / UNBLOCK -->
+    <div class="section-card">
+        <div class="section-title">Block / Unblock</div>
+        <input id="block_uid" placeholder="UID">
+        <button class="danger-btn" onclick="blockStudent()">Block Card</button>
+        <button style="margin-top:10px;" onclick="unblockStudent()">Unblock Card</button>
+    </div>
+
+</div>
+
+<script>
+const BASE = "http://localhost:5001";
+
+function showSuccess(msg) {
+    let b = document.getElementById("success");
+    b.style.display = "block";
+    b.textContent = msg;
+    setTimeout(() => b.style.display = "none", 3000);
+}
+
+function showError(msg) {
+    let b = document.getElementById("error");
+    b.style.display = "block";
+    b.textContent = msg;
+    setTimeout(() => b.style.display = "none", 3000);
+}
+
+// ---------------------------
+// ADD STUDENT
+// ---------------------------
+function addStudent() {
+    let uid = document.getElementById("add_uid").value;
+    let name = document.getElementById("add_name").value;
+    let balance = parseFloat(document.getElementById("add_balance").value);
+    let photoFile = document.getElementById("add_photo").files[0];
+
+    fetch(BASE + "/api/add_student", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uid, name, balance })
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.status === "success") {
+            if (photoFile) uploadPhoto(uid, photoFile);
+            else showSuccess("Student Added!");
+        }
+        else showError(d.message);
+    });
+}
+
+// ---------------------------
+// UPLOAD PHOTO
+// ---------------------------
+function uploadPhoto(uid, file) {
+    let fd = new FormData();
+    fd.append("uid", uid);
+    fd.append("photo", file);
+
+    fetch(BASE + "/api/upload_photo", {
+        method: "POST",
+        body: fd
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.status === "success") showSuccess("Student Added + Photo Uploaded!");
+        else showError("Photo upload failed");
+    });
+}
+
+// ---------------------------
+// ADD BALANCE
+// ---------------------------
+function addBalance() {
+    fetch(BASE + "/api/add_balance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            uid: document.getElementById("bal_uid").value,
+            amount: parseFloat(document.getElementById("bal_amt").value)
+        })
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.status === "success") showSuccess("Balance Updated!");
+        else showError(d.message);
+    });
+}
+
+// ---------------------------
+// BLOCK / UNBLOCK
+// ---------------------------
+function blockStudent() {
+    fetch(BASE + "/api/block_card", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uid: document.getElementById("block_uid").value })
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.status === "success") showSuccess("Card Blocked!");
+        else showError(d.message);
+    });
+}
+
+function unblockStudent() {
+    fetch(BASE + "/api/unblock_card", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uid: document.getElementById("block_uid").value })
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.status === "success") showSuccess("Card Unblocked!");
+        else showError(d.message);
+    });
+}
+
+function logout() {
+    window.location.href = "/admin_login";
+}
+</script>
+
+</body>
+</html>
