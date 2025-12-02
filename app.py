@@ -89,7 +89,35 @@ def add_student():
     con.close()
     return jsonify({"status": "success"})
 
+# ----------------------------------------------------------
+# ADMIN LOGIN (MISSING IN YOUR FILE)
+# ----------------------------------------------------------
+@app.route("/api/admin_login", methods=["POST"])
+@app.route("/api/admin_login/", methods=["POST"])  # handles trailing slash
+def admin_login():
+    data = request.json or {}
+    username = data.get("username")
+    password = data.get("password")
 
+    con = get_db()
+    cur = con.cursor()
+
+    cur.execute(
+        "SELECT * FROM admins WHERE username=? AND password=? AND active=1",
+        (username, password)
+    )
+    admin = cur.fetchone()
+
+    if admin is None:
+        con.close()
+        return jsonify({"status": "error", "message": "Invalid credentials"}), 401
+
+    cur.execute("UPDATE admins SET last_login=CURRENT_TIMESTAMP WHERE id=?", (admin["id"],))
+    con.commit()
+    con.close()
+
+    return jsonify({"status": "success"})
+    
 @app.route("/api/student/<uid>")
 def student_info(uid):
     uid = uid.strip().upper()
