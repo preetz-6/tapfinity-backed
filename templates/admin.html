@@ -137,7 +137,8 @@
 </div>
 
 <script>
-const BASE = "http://localhost:5001";
+// 🔥 RENDER BACKEND API
+const BASE = "https://tapfinity-backed.onrender.com";
 
 function showSuccess(msg) {
     let b = document.getElementById("success");
@@ -157,10 +158,15 @@ function showError(msg) {
 // ADD STUDENT
 // ---------------------------
 function addStudent() {
-    let uid = document.getElementById("add_uid").value;
-    let name = document.getElementById("add_name").value;
+    let uid = document.getElementById("add_uid").value.trim().toUpperCase();
+    let name = document.getElementById("add_name").value.trim();
     let balance = parseFloat(document.getElementById("add_balance").value);
     let photoFile = document.getElementById("add_photo").files[0];
+
+    if (!uid || !name || isNaN(balance)) {
+        showError("Enter UID, name & balance");
+        return;
+    }
 
     fetch(BASE + "/api/add_student", {
         method: "POST",
@@ -172,9 +178,11 @@ function addStudent() {
         if (d.status === "success") {
             if (photoFile) uploadPhoto(uid, photoFile);
             else showSuccess("Student Added!");
+        } else {
+            showError(d.message);
         }
-        else showError(d.message);
-    });
+    })
+    .catch(() => showError("Network error"));
 }
 
 // ---------------------------
@@ -193,55 +201,68 @@ function uploadPhoto(uid, file) {
     .then(d => {
         if (d.status === "success") showSuccess("Student Added + Photo Uploaded!");
         else showError("Photo upload failed");
-    });
+    })
+    .catch(() => showError("Network error"));
 }
 
 // ---------------------------
 // ADD BALANCE
 // ---------------------------
 function addBalance() {
+    let uid = document.getElementById("bal_uid").value.trim().toUpperCase();
+    let amt = parseFloat(document.getElementById("bal_amt").value);
+
+    if (!uid || isNaN(amt)) {
+        showError("Enter valid UID and amount");
+        return;
+    }
+
     fetch(BASE + "/api/add_balance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            uid: document.getElementById("bal_uid").value,
-            amount: parseFloat(document.getElementById("bal_amt").value)
-        })
+        body: JSON.stringify({ uid, amount: amt })
     })
     .then(r => r.json())
     .then(d => {
         if (d.status === "success") showSuccess("Balance Updated!");
         else showError(d.message);
-    });
+    })
+    .catch(() => showError("Network error"));
 }
 
 // ---------------------------
 // BLOCK / UNBLOCK
 // ---------------------------
 function blockStudent() {
+    let uid = document.getElementById("block_uid").value.trim().toUpperCase();
+
     fetch(BASE + "/api/block_card", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uid: document.getElementById("block_uid").value })
+        body: JSON.stringify({ uid })
     })
     .then(r => r.json())
     .then(d => {
         if (d.status === "success") showSuccess("Card Blocked!");
         else showError(d.message);
-    });
+    })
+    .catch(() => showError("Network error"));
 }
 
 function unblockStudent() {
+    let uid = document.getElementById("block_uid").value.trim().toUpperCase();
+
     fetch(BASE + "/api/unblock_card", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uid: document.getElementById("block_uid").value })
+        body: JSON.stringify({ uid })
     })
     .then(r => r.json())
     .then(d => {
         if (d.status === "success") showSuccess("Card Unblocked!");
         else showError(d.message);
-    });
+    })
+    .catch(() => showError("Network error"));
 }
 
 function logout() {
