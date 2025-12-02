@@ -134,9 +134,10 @@
 </div>
 
 <script>
-const BASE = "http://localhost:5001";
+// 🔥 Render backend URL
+const BASE = "https://tapfinity-backed.onrender.com";
 
-// Fetch uid from URL
+// Read ?uid=XXXX from URL
 function getQueryParam(param) {
     let url = new URL(window.location.href);
     return url.searchParams.get(param);
@@ -144,6 +145,12 @@ function getQueryParam(param) {
 
 function loadStudent() {
     let uid = getQueryParam("uid");
+
+    if (!uid) {
+        alert("Invalid UID");
+        window.location.href = "/student_login";
+        return;
+    }
 
     fetch(`${BASE}/api/student/${uid}`)
         .then(r => r.json())
@@ -156,20 +163,22 @@ function loadStudent() {
             let stu = data.student;
             let tx = data.transactions;
 
-            // Set Name
+            // Student name
             document.getElementById("student_name").textContent = stu.name;
 
-            // Set Photo
-            if (stu.photo && stu.photo !== "none") {
-                document.getElementById("profile_photo").src = "/static/photos/" + stu.photo;
+            // Photo
+            if (stu.photo) {
+                document.getElementById("profile_photo").src =
+                    `${BASE}/static/photos/${stu.photo}`;
             } else {
-                document.getElementById("profile_photo").src = "https://via.placeholder.com/110?text=No+Photo";
+                document.getElementById("profile_photo").src =
+                    "https://via.placeholder.com/110?text=No+Photo";
             }
 
-            // Set Balance
+            // Balance
             document.getElementById("balance_value").textContent = "₹" + stu.balance;
 
-            // Card status
+            // Status
             let statusBox = document.getElementById("status_box");
             if (stu.blocked == 1) {
                 statusBox.style.background = "#ffe5e7";
@@ -181,7 +190,7 @@ function loadStudent() {
                 statusBox.textContent = "Card Status: ACTIVE";
             }
 
-            // Transactions list
+            // Recent Transactions
             let html = "";
             tx.forEach(t => {
                 html += `
@@ -196,6 +205,10 @@ function loadStudent() {
             });
 
             document.getElementById("transactions_list").innerHTML = html;
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Network error");
         });
 }
 
