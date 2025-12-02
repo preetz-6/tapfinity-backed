@@ -79,8 +79,8 @@
 </div>
 
 <script>
-// IMPORTANT: Use your backend IP
-const BASE = "http://10.250.93.244:5001";
+// 🔥 IMPORTANT — Render backend URL
+const BASE = "https://tapfinity-backed.onrender.com";
 
 function showError(msg) {
     let e = document.getElementById("error_box");
@@ -91,6 +91,11 @@ function showError(msg) {
 function loginStudent() {
     let uid = document.getElementById("uid").value.trim().toUpperCase();
     let pin = document.getElementById("pin").value.trim();
+
+    if (!uid || !pin) {
+        showError("Please enter UID and PIN");
+        return;
+    }
 
     fetch(BASE + "/api/login", {
         method: "POST",
@@ -104,6 +109,10 @@ function loginStudent() {
         } else {
             showError(d.message);
         }
+    })
+    .catch(err => {
+        showError("Network error");
+        console.log(err);
     });
 }
 </script>
