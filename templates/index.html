@@ -1,166 +1,152 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Tap-Finity — Campus Wallet</title>
-  <style>
-    :root{
-      --bg:#f6f8fb;
-      --card:#ffffff;
-      --accent:#0066ff;
-      --muted:#6b7280;
-      --glass: rgba(255,255,255,0.6);
-      --radius:18px;
-      --maxw:1100px;
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      background: linear-gradient(180deg,#f6f8fb 0%, #eef3ff 100%);
-      color:#0f172a;
-      -webkit-font-smoothing:antialiased;
-      -moz-osx-font-smoothing:grayscale;
-    }
-    .wrap{max-width:var(--maxw);margin:32px auto;padding:24px;}
-    .nav{
-      display:flex;align-items:center;justify-content:space-between;
-      gap:12px;margin-bottom:28px;
-    }
-    .brand{
-      display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;
-    }
-    .logo{
-      width:54px;height:54px;border-radius:12px;
-      background:linear-gradient(135deg,#007aff,#8b5cf6);
-      display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:20px;
-      box-shadow:0 6px 20px rgba(99,102,241,0.12);
-    }
-    .brand h1{margin:0;font-size:20px;letter-spacing:0.2px}
-    .brand p{margin:0;font-size:12px;color:var(--muted)}
-    .nav-actions{display:flex;gap:10px;align-items:center}
-    .btn{
-      padding:10px 14px;border-radius:12px;border:none;background:var(--card);cursor:pointer;
-      box-shadow:0 4px 14px rgba(2,6,23,0.06);font-weight:600
-    }
-    .btn-outline{background:transparent;border:1px solid rgba(15,23,42,0.06)}
-    .hero{
-      display:flex;gap:28px;align-items:center;padding:28px;border-radius:20px;background:linear-gradient(90deg, rgba(255,255,255,0.75), rgba(255,255,255,0.85));
-      box-shadow: 0 8px 30px rgba(16,24,40,0.06);backdrop-filter: blur(6px);
-    }
-    .hero-left{flex:1}
-    .eyebrow{font-size:13px;color:var(--muted);margin-bottom:12px}
-    h2{margin:0;font-size:28px;line-height:1.05}
-    p.lead{color:var(--muted);margin-top:10px}
-    .cta-row{margin-top:18px;display:flex;gap:12px;flex-wrap:wrap}
-    .primary{
-      background:linear-gradient(90deg,var(--accent),#8b5cf6);color:white;padding:12px 18px;border-radius:12px;border:none;font-weight:700;
-      box-shadow:0 10px 30px rgba(99,102,241,0.18);cursor:pointer;
-    }
-    .secondary{background:transparent;border:1px solid rgba(2,6,23,0.06);padding:10px 14px;border-radius:12px}
-    .hero-right{
-      width:380px;max-width:40%;
-      display:flex;flex-direction:column;gap:14px;
-      margin-left:auto;
-    }
-    .card {
-      background:var(--card);border-radius:14px;padding:14px;box-shadow:0 6px 18px rgba(2,6,23,0.06);
-    }
-    .kbd{font-family:monospace;background:#f3f4f6;padding:6px 8px;border-radius:8px;font-weight:700}
-    .features{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:20px}
-    .feat{background:linear-gradient(180deg,#fff,#fbfdff);padding:14px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,0.04)}
-    .feat h4{margin:0;font-size:15px}
-    .footer{margin-top:28px;text-align:center;color:var(--muted);font-size:13px;padding:20px}
-    /* responsive */
-    @media (max-width:880px){
-      .hero{flex-direction:column}
-      .hero-right{width:100%;max-width:100%}
-      .features{grid-template-columns:1fr}
-      .wrap{padding:12px;margin:18px auto}
-      h2{font-size:22px}
-    }
-  </style>
+  <title>Tap-Finity — Smart RFID Payment System</title>
+  <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-  <div class="wrap">
-    <nav class="nav">
-      <a class="brand" href="/">
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
         <div class="logo">TF</div>
         <div>
-          <h1>Tap-Finity</h1>
-          <p>Campus Wallet & Payments</p>
+          <h1 class="brand-title">Tap-Finity</h1>
+          <div class="brand-sub">Smart RFID payment for campuses</div>
         </div>
-      </a>
-
-      <div class="nav-actions">
-        <a class="btn btn-outline" href="/admin_login">Admin</a>
-        <a class="btn btn-outline" href="/student_login">Student</a>
-        <a class="btn btn-outline" href="/kiosk">Kiosk</a>
       </div>
-    </nav>
 
-    <main class="hero" role="main">
-      <section class="hero-left">
-        <div class="eyebrow">Secure • Fast • Campus first</div>
-        <h2>Instant campus payments and cashless canteen — simplified.</h2>
-        <p class="lead">Tap-Finity lets students top up and pay with one card. Admins manage wallets, blocks and transactions from a single dashboard — built for demos & campus deployment.</p>
-
-        <div class="cta-row">
-          <button class="primary" onclick="location.href='/student_login'">Student Login</button>
-          <button class="btn secondary" onclick="location.href='/admin_login'">Admin Login</button>
-        </div>
-
-        <div class="features" style="margin-top:24px">
-          <div class="feat">
-            <h4>Tap & Pay</h4>
-            <div style="color:var(--muted);margin-top:6px">RFID tap to authorize payments on kiosk devices</div>
-          </div>
-          <div class="feat">
-            <h4>Offline Kiosk Support</h4>
-            <div style="color:var(--muted);margin-top:6px">Kiosk talks to the central server over local network</div>
-          </div>
-          <div class="feat">
-            <h4>Admin Controls</h4>
-            <div style="color:var(--muted);margin-top:6px">Add students, top-ups, block cards and view transactions</div>
-          </div>
-          <div class="feat">
-            <h4>Student Privacy</h4>
-            <div style="color:var(--muted);margin-top:6px">Kiosk can be configured to not display balances</div>
-          </div>
-        </div>
-      </section>
-
-      <aside class="hero-right">
-        <div class="card">
-          <strong>Quick demo</strong>
-          <div style="margin-top:8px;color:var(--muted)">Try these test steps:</div>
-          <ul style="margin:10px 0 0 18px;color:var(--muted)">
-            <li>Open <span class="kbd">Admin</span> to add a test student</li>
-            <li>Open <span class="kbd">Student</span> and login with UID + PIN</li>
-            <li>Use Kiosk for RFID tap flow (Pi)</li>
-          </ul>
-        </div>
-
-        <div class="card">
-          <strong>Developer notes</strong>
-          <div style="margin-top:8px;color:var(--muted)">Local server: <span class="kbd">http://localhost:5001</span></div>
-          <div style="margin-top:8px;color:var(--muted)">APIs available: <span style="font-weight:700">/api/*</span></div>
-        </div>
-
-        <div class="card" style="display:flex;justify-content:space-between;align-items:center">
-          <div>
-            <div style="font-weight:700">Get started</div>
-            <div style="color:var(--muted);margin-top:6px">Admin and student portals are ready — add students and test the flow.</div>
-          </div>
-          <div style="width:58px;height:58px;border-radius:12px;background:linear-gradient(90deg,#00c6ff,#007aff);display:flex;align-items:center;justify-content:center;color:white;font-weight:700">Go</div>
-        </div>
-      </aside>
-    </main>
-
-    <div class="footer">
-      © <strong>Tap-Finity</strong> — Student campus wallet project. Built with ❤️.
+      <nav class="top-actions">
+        <a class="btn btn-outline" href="/student_login">Student</a>
+        <a class="btn btn-primary" href="/admin_login">Admin</a>
+      </nav>
     </div>
-  </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="container hero-grid">
+      <div class="hero-left">
+        <h2 class="hero-title">Smart RFID Payment System</h2>
+        <p class="hero-sub">Instant, secure, cashless payments for campuses — fast verification and easy admin controls.</p>
+
+        <div class="hero-cta">
+          <a href="/student_login" class="btn btn-cta">Student Login</a>
+          <a href="/admin_login" class="btn btn-cta ghost">Admin Login</a>
+        </div>
+      </div>
+
+      <div class="hero-right">
+        <!-- Replace rfid.gif with your animated GIF in static/images/ -->
+        <img src="/static/images/rfid.gif" alt="RFID tap animation" class="rfid-gif" />
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="howworks">
+    <div class="container">
+      <h3 class="section-title">How it works</h3>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-ico">📶</div>
+          <h4>Tap the RFID Card</h4>
+          <p>Card sends UID to the kiosk.</p>
+        </div>
+
+        <div class="step">
+          <div class="step-ico">🔍</div>
+          <h4>Server Verifies</h4>
+          <p>Balance & block status checked instantly.</p>
+        </div>
+
+        <div class="step">
+          <div class="step-ico">💳</div>
+          <h4>Payment Processed</h4>
+          <p>Amount deducted securely from wallet.</p>
+        </div>
+
+        <div class="step">
+          <div class="step-ico">📘</div>
+          <h4>Transaction Stored</h4>
+          <p>Entry added to student's transaction history.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MOCKUPS -->
+  <section class="mockups">
+    <div class="container">
+      <h3 class="section-title">Product preview</h3>
+
+      <div class="mockup-grid">
+        <figure class="mockup-card">
+          <img src="/static/images/student_preview.png" alt="Student dashboard preview">
+          <figcaption>Student dashboard</figcaption>
+        </figure>
+
+        <figure class="mockup-card">
+          <img src="/static/images/flow_preview.png" alt="Tap Verify Deduct">
+          <figcaption>Tap → Verify → Deduct</figcaption>
+        </figure>
+
+        <figure class="mockup-card">
+          <img src="/static/images/admin_preview.png" alt="Admin dashboard preview">
+          <figcaption>Admin dashboard</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- TESTIMONIALS -->
+  <section class="testimonials">
+    <div class="container">
+      <h3 class="section-title">What people say</h3>
+
+      <div class="test-grid">
+        <blockquote class="test-card">
+          <p>“Smooth experience. Students love tapping instead of paying cash.”</p>
+          <footer>— Campus Admin</footer>
+        </blockquote>
+
+        <blockquote class="test-card">
+          <p>“Checkout time reduced by almost 60%.”</p>
+          <footer>— Canteen Staff</footer>
+        </blockquote>
+
+        <blockquote class="test-card">
+          <p>“Super easy to manage students and balances.”</p>
+          <footer>— Tech Team</footer>
+        </blockquote>
+      </div>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div>© Tap-Finity 2025</div>
+      <div class="footer-links">
+        <a href="/features">Features</a>
+        <a href="/contact">Contact</a>
+        <a href="/about">About</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // small progressive enhancement: stop gif if file missing
+    document.addEventListener('DOMContentLoaded', () => {
+      const gif = document.querySelector('.rfid-gif');
+      if (gif && !gif.complete) {
+        gif.addEventListener('error', () => {
+          // fallback: replace with static svg if gif missing
+          gif.src = '/static/images/rfid.png';
+        });
+      }
+    });
+  </script>
 </body>
 </html>
