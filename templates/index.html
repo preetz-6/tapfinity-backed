@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
+
   <header class="site-header">
     <div class="container header-inner">
       <div class="brand">
@@ -38,8 +39,8 @@
       </div>
 
       <div class="hero-right">
-        <!-- Replace rfid.gif with your animated GIF in static/images/ -->
-        <img src="/static/images/rfid.gif" alt="RFID tap animation" class="rfid-gif" />
+        <!-- Using PNG instead of GIF -->
+        <img src="/static/images/rfid.png" alt="RFID tap animation" class="rfid-gif" />
       </div>
     </div>
   </section>
@@ -136,17 +137,5 @@
     </div>
   </footer>
 
-  <script>
-    // small progressive enhancement: stop gif if file missing
-    document.addEventListener('DOMContentLoaded', () => {
-      const gif = document.querySelector('.rfid-gif');
-      if (gif && !gif.complete) {
-        gif.addEventListener('error', () => {
-          // fallback: replace with static svg if gif missing
-          gif.src = '/static/images/rfid.png';
-        });
-      }
-    });
-  </script>
 </body>
 </html>
