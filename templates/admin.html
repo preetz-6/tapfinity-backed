@@ -35,9 +35,16 @@
         }
 
         .container {
-            max-width: 480px;
+            max-width: 720px;
             margin: auto;
             padding: 20px;
+        }
+
+        .top-actions-row {
+            display:flex;
+            gap:12px;
+            margin-bottom:16px;
+            align-items:center;
         }
 
         .section-card {
@@ -64,16 +71,17 @@
             font-size: 16px;
         }
 
-        button {
-            width: 100%;
-            padding: 12px;
+        button, .btn {
+            display:inline-block;
+            padding: 10px 14px;
             background: #007aff;
             color: white;
             border: none;
             border-radius: 12px;
-            font-size: 16px;
+            font-size: 14px;
             cursor: pointer;
             font-weight: 600;
+            text-decoration:none;
         }
 
         .danger-btn {
@@ -90,6 +98,9 @@
 
         .success-box { background: #e8f9ee; color: #0a7a43; }
         .error-box { background: #ffe9ea; color: #c7162b; }
+
+        /* small helper */
+        .muted { color:#666; font-size:13px }
     </style>
 </head>
 
@@ -104,6 +115,15 @@
 
     <div id="success" class="success-box"></div>
     <div id="error" class="error-box"></div>
+
+    <div class="top-actions-row">
+        <!-- New Transactions button (visible on all admin pages) -->
+        <a class="btn" href="/admin/transactions">View Transactions</a>
+
+        <!-- Quick links -->
+        <a class="btn" href="/admin" style="background:#10b981">Admin Home</a>
+        <a class="btn" href="/student_login" style="background:#6b7280">Student Login</a>
+    </div>
 
     <!-- ADD STUDENT -->
     <div class="section-card">
@@ -179,7 +199,7 @@ function addStudent() {
             if (photoFile) uploadPhoto(uid, photoFile);
             else showSuccess("Student Added!");
         } else {
-            showError(d.message);
+            showError(d.message || "Error");
         }
     })
     .catch(() => showError("Network error"));
@@ -225,7 +245,7 @@ function addBalance() {
     .then(r => r.json())
     .then(d => {
         if (d.status === "success") showSuccess("Balance Updated!");
-        else showError(d.message);
+        else showError(d.message || "Error");
     })
     .catch(() => showError("Network error"));
 }
@@ -244,7 +264,7 @@ function blockStudent() {
     .then(r => r.json())
     .then(d => {
         if (d.status === "success") showSuccess("Card Blocked!");
-        else showError(d.message);
+        else showError(d.message || "Error");
     })
     .catch(() => showError("Network error"));
 }
@@ -260,7 +280,7 @@ function unblockStudent() {
     .then(r => r.json())
     .then(d => {
         if (d.status === "success") showSuccess("Card Unblocked!");
-        else showError(d.message);
+        else showError(d.message || "Error");
     })
     .catch(() => showError("Network error"));
 }
