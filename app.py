@@ -234,6 +234,37 @@ def unblock_card():
 
     return jsonify({"status": "success"})
 
+@app.route("/admin/transactions")
+def admin_transactions_page():
+    return render_template("admin_transactions.html")
+
+
+@app.route("/api/transactions")
+def get_all_transactions():
+    con = get_db()
+    cur = con.cursor()
+    cur.execute("""
+        SELECT t.id, t.uid, s.name, t.amount, t.status, t.created_at
+        FROM transactions t
+        LEFT JOIN students s ON t.uid = s.uid
+        ORDER BY t.id DESC;
+    """)
+    rows = cur.fetchall()
+    con.close()
+
+    transactions = []
+    for r in rows:
+        transactions.append({
+            "id": r["id"],
+            "uid": r["uid"],
+            "name": r["name"],
+            "amount": r["amount"],
+            "status": r["status"],
+            "created_at": r["created_at"]
+        })
+
+    return jsonify({"status": "success", "transactions": transactions})
+
 
 # ----------------------------------------------------------
 # STUDENT LOGIN
