@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Transactions • Tap-Finity</title>
+    <style>
+        body {
+            margin: 0;
+            background: #eef1f7;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        .topbar {
+            background: #007aff;
+            color: white;
+            padding: 15px 20px;
+            font-size: 22px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .back-btn {
+            background: white;
+            color: #007aff;
+            padding: 8px 15px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 25px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background: #f1f5f9;
+        }
+
+        .status-success {
+            color: #0a7a43;
+            font-weight: 600;
+        }
+        .status-failed, .status_failed_insufficient {
+            color: #c7162b;
+            font-weight: 600;
+        }
+        .status-topup {
+            color: #2563eb;
+            font-weight: 600;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="topbar">
+    Transactions
+    <a class="back-btn" href="/admin">Back</a>
+</div>
+
+<div class="container">
+    <h2>All Transactions</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>UID</th>
+                <th>Name</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Time</th>
+            </tr>
+        </thead>
+        <tbody id="tx-body">
+            <!-- Rows will load here -->
+        </tbody>
+    </table>
+</div>
+
+<script>
+const BASE = "https://tapfinity-backed.onrender.com";
+
+function loadTransactions() {
+    fetch(BASE + "/api/transactions")
+        .then(r => r.json())
+        .then(d => {
+            if (d.status !== "success") return;
+
+            const tbody = document.getElementById("tx-body");
+            tbody.innerHTML = "";
+
+            d.transactions.forEach(tx => {
+                let cls = "";
+                if (tx.status === "success") cls = "status-success";
+                else if (tx.status === "topup") cls = "status-topup";
+                else cls = "status-failed";
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${tx.id}</td>
+                        <td>${tx.uid}</td>
+                        <td>${tx.name || "-"}</td>
+                        <td>${tx.amount}</td>
+                        <td class="${cls}">${tx.status}</td>
+                        <td>${tx.created_at}</td>
+                    </tr>
+                `;
+            });
+        });
+}
+
+loadTransactions();
+</script>
+
+</body>
+</html>
