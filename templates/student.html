@@ -3,7 +3,6 @@
 <head>
     <title>Student Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
     <style>
         body {
             margin: 0;
@@ -11,13 +10,7 @@
             background: #0f0f12;
             color: #eaeaea;
         }
-
-        .layout {
-            display: flex;
-            min-height: 100vh;
-        }
-
-        /* ---------------- SIDEBAR ---------------- */
+        .layout { display: flex; min-height: 100vh; }
         .sidebar {
             width: 240px;
             background: #15151c;
@@ -25,13 +18,7 @@
             position: fixed;
             height: 100vh;
         }
-
-        .sidebar h2 {
-            margin: 0 0 30px;
-            font-size: 20px;
-            text-align: center;
-        }
-
+        .sidebar h2 { margin-bottom: 30px; text-align: center; }
         .nav-item {
             padding: 12px 15px;
             margin-bottom: 10px;
@@ -39,70 +26,28 @@
             cursor: pointer;
             color: #ccc;
         }
-
-        .nav-item:hover {
-            background: #1f1f2b;
-            color: #fff;
-        }
-
-        /* ---------------- MAIN ---------------- */
-        .main {
-            margin-left: 240px;
-            flex: 1;
-            padding: 30px;
-        }
-
-        .header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 30px;
-        }
-
+        .nav-item:hover { background: #1f1f2b; color: #fff; }
+        .main { margin-left: 240px; padding: 30px; flex: 1; }
+        .header { display: flex; align-items: center; margin-bottom: 30px; }
         .profile-pic {
-            width: 70px;
-            height: 70px;
-            border-radius: 50%;
-            margin-right: 20px;
-            object-fit: cover;
+            width: 70px; height: 70px; border-radius: 50%;
+            margin-right: 20px; object-fit: cover;
         }
-
-        .student-name {
-            font-size: 26px;
-            font-weight: 600;
-        }
-
-        /* ---------------- METRICS ---------------- */
+        .student-name { font-size: 26px; font-weight: 600; }
         .metrics {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 20px;
             margin-bottom: 50px;
         }
-
         .card {
             background: #1a1a25;
             padding: 20px;
             border-radius: 14px;
         }
-
-        .card-title {
-            font-size: 14px;
-            color: #aaa;
-        }
-
-        .card-value {
-            font-size: 28px;
-            font-weight: 700;
-            margin-top: 8px;
-        }
-
-        /* ---------------- TABLE ---------------- */
-        .section-title {
-            font-size: 22px;
-            margin-bottom: 15px;
-            margin-top: 60px;
-        }
-
+        .card-title { font-size: 14px; color: #aaa; }
+        .card-value { font-size: 28px; font-weight: 700; margin-top: 8px; }
+        .section-title { font-size: 22px; margin: 60px 0 15px; }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -110,83 +55,34 @@
             border-radius: 12px;
             overflow: hidden;
         }
+        th, td { padding: 14px; text-align: left; }
+        th { background: #20202c; color: #bbb; }
+        tr:not(:last-child) { border-bottom: 1px solid #2b2b3a; }
+        .status-success { color: #3ddc97; }
+        .status-failed { color: #ff6b6b; }
 
-        th, td {
-            padding: 14px;
-            text-align: left;
-        }
-
-        th {
-            background: #20202c;
-            color: #bbb;
-            font-weight: 600;
-        }
-
-        tr:not(:last-child) {
-            border-bottom: 1px solid #2b2b3a;
-        }
-
-        .status-success {
-            color: #3ddc97;
-        }
-
-        .status-failed {
-            color: #ff6b6b;
-        }
-
-        /* ---------------- MODAL ---------------- */
+        /* Modal */
         .modal {
-            display: none;
-            position: fixed;
-            inset: 0;
+            display: none; position: fixed; inset: 0;
             background: rgba(0,0,0,0.6);
-            align-items: center;
-            justify-content: center;
+            align-items: center; justify-content: center;
         }
-
         .modal-box {
-            background: #1a1a25;
-            padding: 30px;
-            border-radius: 16px;
-            width: 360px;
+            background: #1a1a25; padding: 30px;
+            border-radius: 16px; width: 360px;
         }
-
         .modal-box input {
-            width: 100%;
-            padding: 12px;
-            margin-bottom: 12px;
-            border-radius: 10px;
-            border: none;
-            background: #2a2a38;
-            color: #fff;
+            width: 100%; padding: 12px; margin-bottom: 12px;
+            border-radius: 10px; border: none;
+            background: #2a2a38; color: #fff;
         }
-
         .modal-box button {
-            width: 100%;
-            padding: 12px;
-            background: #3ddc97;
-            border: none;
-            border-radius: 10px;
-            font-weight: 600;
+            width: 100%; padding: 12px;
+            background: #3ddc97; border: none;
+            border-radius: 10px; font-weight: 600;
             cursor: pointer;
         }
-
-        .msg {
-            margin-top: 10px;
-            font-size: 14px;
-        }
-
-        @media (max-width: 900px) {
-            .sidebar {
-                display: none;
-            }
-            .main {
-                margin-left: 0;
-            }
-            .metrics {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
+        .msg { margin-top: 10px; font-size: 14px; }
     </style>
 </head>
 
@@ -194,20 +90,16 @@
 
 <div class="layout">
 
-    <!-- SIDEBAR -->
     <div class="sidebar">
         <h2>TapFinity</h2>
-        <div class="nav-item" onclick="scrollToSection('dashboard')">Dashboard</div>
-        <div class="nav-item" onclick="scrollToSection('transactions')">Transactions</div>
+        <div class="nav-item" onclick="scrollTo('dashboard')">Dashboard</div>
+        <div class="nav-item" onclick="scrollTo('transactions')">Transactions</div>
         <div class="nav-item" onclick="openPasswordModal()">Change Password</div>
-        <div class="nav-item">Profile</div>
         <div class="nav-item" onclick="logout()">Logout</div>
     </div>
 
-    <!-- MAIN -->
     <div class="main">
 
-        <!-- DASHBOARD -->
         <div id="dashboard">
             <div class="header">
                 <img id="profile_photo" class="profile-pic">
@@ -219,17 +111,14 @@
                     <div class="card-title">Current Balance</div>
                     <div class="card-value" id="balance_value">₹0</div>
                 </div>
-
                 <div class="card">
                     <div class="card-title">Total Spent</div>
                     <div class="card-value" id="total_spent">₹0</div>
                 </div>
-
                 <div class="card">
                     <div class="card-title">Transactions</div>
                     <div class="card-value" id="tx_count">0</div>
                 </div>
-
                 <div class="card">
                     <div class="card-title">Card Status</div>
                     <div class="card-value" id="card_status">ACTIVE</div>
@@ -237,10 +126,8 @@
             </div>
         </div>
 
-        <!-- TRANSACTIONS -->
         <div id="transactions">
             <div class="section-title">Recent Transactions</div>
-
             <table>
                 <thead>
                     <tr>
@@ -256,18 +143,14 @@
     </div>
 </div>
 
-<!-- CHANGE PASSWORD MODAL -->
 <div id="passwordModal" class="modal">
     <div class="modal-box">
         <h3>Change Password</h3>
-
         <input id="old_password" type="password" placeholder="Old Password">
         <input id="new_password" type="password" placeholder="New Password">
         <input id="confirm_password" type="password" placeholder="Confirm New Password">
-
         <button onclick="submitPasswordChange()">Update Password</button>
         <div id="pwd_msg" class="msg"></div>
-
         <div style="margin-top:15px;text-align:center;cursor:pointer;color:#aaa"
              onclick="closePasswordModal()">Cancel</div>
     </div>
@@ -276,16 +159,16 @@
 <script>
 const BASE = "https://tapfinity-backed.onrender.com";
 
-function getQueryParam(p) {
-    return new URL(window.location.href).searchParams.get(p);
-}
-
-function scrollToSection(id) {
+function scrollTo(id) {
     document.getElementById(id).scrollIntoView({ behavior: "smooth" });
 }
 
+function getUSN() {
+    return new URLSearchParams(window.location.search).get("usn");
+}
+
 function loadStudent() {
-    const usn = getQueryParam("usn");
+    const usn = getUSN();
     if (!usn) {
         window.location.href = "/student_login";
         return;
@@ -295,66 +178,55 @@ function loadStudent() {
         .then(r => r.json())
         .then(data => {
             const s = data.student;
-            const tx = data.transactions;
 
-            document.getElementById("student_name").textContent = s.name;
-            document.getElementById("balance_value").textContent = "₹" + s.balance;
-            document.getElementById("card_status").textContent =
-    s.blocked === true ? "BLOCKED" : "ACTIVE";
+            student_name.textContent = s.name;
+            balance_value.textContent = "₹" + s.balance;
+            total_spent.textContent = "₹" + data.total_spent;
+            tx_count.textContent = data.tx_count;
+            card_status.textContent = s.blocked ? "BLOCKED" : "ACTIVE";
 
+            profile_photo.src = s.photo
+                ? `${BASE}/static/photos/${s.photo}`
+                : "https://via.placeholder.com/70";
 
-            document.getElementById("profile_photo").src =
-                s.photo ? `${BASE}/static/photos/${s.photo}` :
-                "https://via.placeholder.com/70";
-
-            let total = 0, rows = "";
-            tx.forEach(t => {
-                if (t.status === "success") total += Number(t.amount);
-                rows += `
-                    <tr>
-                        <td>₹ ${t.amount}</td>
-                        <td class="${t.status === 'success' ? 'status-success' : 'status-failed'}">${t.status}</td>
-                        <td>${t.timestamp}</td>
-                    </tr>`;
-            });
-
-            document.getElementById("total_spent").textContent = "₹" + total;
-            document.getElementById("tx_count").textContent = tx.length;
-            document.getElementById("tx_table").innerHTML = rows;
+            tx_table.innerHTML = data.transactions.map(t => `
+                <tr>
+                    <td>₹${t.amount}</td>
+                    <td class="${t.status === 'success' ? 'status-success' : 'status-failed'}">${t.status}</td>
+                    <td>${t.timestamp}</td>
+                </tr>
+            `).join("");
         });
 }
 
 function openPasswordModal() {
-    document.getElementById("passwordModal").style.display = "flex";
+    passwordModal.style.display = "flex";
 }
-
 function closePasswordModal() {
-    document.getElementById("passwordModal").style.display = "none";
+    passwordModal.style.display = "none";
 }
 
 function submitPasswordChange() {
-    const usn = getQueryParam("usn");
-    const oldPwd = old_password.value;
-    const newPwd = new_password.value;
-    const confirmPwd = confirm_password.value;
-    const msg = pwd_msg;
-
-    if (newPwd !== confirmPwd) {
-        msg.textContent = "Passwords do not match";
-        msg.style.color = "#ff6b6b";
+    const usn = getUSN();
+    if (new_password.value !== confirm_password.value) {
+        pwd_msg.textContent = "Passwords do not match";
+        pwd_msg.style.color = "#ff6b6b";
         return;
     }
 
     fetch(`${BASE}/api/student/change_password`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ usn, old_password: oldPwd, new_password: newPwd })
-    })
-    .then(r => r.json())
-    .then(d => {
-        msg.textContent = d.message;
-        msg.style.color = d.status === "success" ? "#3ddc97" : "#ff6b6b";
-        if (d.status === "success") setTimeout(closePasswordModal, 1500);
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+            usn,
+            old_password: old_password.value,
+            new_password: new_password.value
+        })
+    }).then(r=>r.json()).then(d=>{
+        pwd_msg.textContent = d.status === "success"
+            ? "Password updated"
+            : "Incorrect password";
+        pwd_msg.style.color = d.status === "success" ? "#3ddc97" : "#ff6b6b";
     });
 }
 
