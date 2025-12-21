@@ -164,6 +164,38 @@ def student_login():
 
     return jsonify({"status":"success"})
 
+# ----------------------------------------------------------
+# ADMIN LOGIN (NO SESSION – BASIC)
+# ----------------------------------------------------------
+@app.route("/api/admin/login", methods=["POST"])
+def admin_login():
+    data = request.json or {}
+
+    username = (data.get("username") or "").strip()
+    password = data.get("password")
+
+    if not username or not password:
+        return jsonify({
+            "status": "error",
+            "message": "Username and password required"
+        }), 400
+
+    con = get_db()
+    cur = con.cursor()
+    cur.execute(
+        "SELECT password_hash FROM admins WHERE username=%s",
+        (username,)
+    )
+    admin = cur.fetchone()
+    con.close()
+
+    if not admin or not check_password_hash(admin["password_hash"], password):
+        return jsonify({
+            "status": "error",
+            "message": "Invalid admin credentials"
+        }), 403
+
+    return jsonify({"status": "success"})
 
 # ----------------------------------------------------------
 # CHANGE PASSWORD
