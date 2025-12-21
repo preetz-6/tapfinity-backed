@@ -485,6 +485,10 @@ def student_page(): return render_template("student.html")
 @app.route("/admin")
 def admin_page(): return render_template("admin.html")
 
+@app.route("/admin_login")
+def admin_login_page():
+    return render_template("admin_login.html")
+
 
 # ----------------------------------------------------------
 # RUN
