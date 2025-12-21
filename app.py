@@ -400,6 +400,77 @@ def admin_analytics():
     })
 
 # ----------------------------------------------------------
+# ADMIN ANALYTICS
+# ----------------------------------------------------------
+@app.route("/api/admin/analytics")
+def admin_analytics():
+    con = get_db()
+    cur = con.cursor()
+
+    cur.execute("SELECT COUNT(*) AS total FROM students")
+    total_students = cur.fetchone()["total"]
+
+    cur.execute("SELECT COUNT(*) AS blocked FROM students WHERE blocked=TRUE")
+    blocked_students = cur.fetchone()["blocked"]
+
+    cur.execute("SELECT COALESCE(SUM(balance),0) AS total_balance FROM students")
+    total_balance = cur.fetchone()["total_balance"]
+
+    cur.execute("""
+        SELECT COALESCE(SUM(amount),0) AS total_spent
+        FROM transactions
+        WHERE status='success'
+    """)
+    total_spent = cur.fetchone()["total_spent"]
+
+    cur.execute("SELECT COUNT(*) AS total_tx FROM transactions")
+    total_tx = cur.fetchone()["total_tx"]
+
+    con.close()
+
+    return jsonify({
+        "status": "success",
+        "analytics": {
+            "total_students": total_students,
+            "blocked_students": blocked_students,
+            "total_balance": float(total_balance),
+            "total_spent": float(total_spent),
+            "total_transactions": total_tx
+        }
+    })
+
+# ----------------------------------------------------------
+# ADMIN TRANSACTIONS LIST
+# ----------------------------------------------------------
+@app.route("/api/admin/transactions")
+def admin_transactions():
+    limit = int(request.args.get("limit", 50))
+
+    con = get_db()
+    cur = con.cursor()
+
+    cur.execute("""
+        SELECT
+            t.amount,
+            t.status,
+            t.timestamp,
+            s.name,
+            s.usn
+        FROM transactions t
+        JOIN students s ON s.uid = t.uid
+        ORDER BY t.timestamp DESC
+        LIMIT %s
+    """, (limit,))
+
+    tx = cur.fetchall()
+    con.close()
+
+    return jsonify({
+        "status": "success",
+        "transactions": tx
+    })
+
+# ----------------------------------------------------------
 # HTML ROUTES
 # ----------------------------------------------------------
 @app.route("/")
