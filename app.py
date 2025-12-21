@@ -373,6 +373,37 @@ def upload_photo():
     con.close()
 
     return jsonify({"status": "success", "filename": filename})
+# ----------------------------------------------------------
+# STUDENT INFO — USN BASED (FOR STUDENT DASHBOARD)
+# ----------------------------------------------------------
+@app.route("/api/student/by_usn/<usn>")
+def student_info_by_usn(usn):
+    usn = usn.strip().upper()
+    con = get_db()
+    cur = con.cursor()
+
+    cur.execute("SELECT * FROM students WHERE usn=%s", (usn,))
+    s = cur.fetchone()
+
+    if s is None:
+        con.close()
+        return jsonify({"status": "error", "message": "Student not found"}), 404
+
+    cur.execute("""
+        SELECT amount, status, timestamp
+        FROM transactions
+        WHERE uid=%s
+        ORDER BY timestamp DESC
+        LIMIT 20
+    """, (s["uid"],))
+    tx = cur.fetchall()
+
+    con.close()
+    return jsonify({
+        "status": "success",
+        "student": s,
+        "transactions": tx
+    })
 
 
 # ----------------------------------------------------------
