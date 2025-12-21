@@ -1,41 +1,56 @@
-import sqlite3
+import os
+import psycopg2
 
-con = sqlite3.connect("database.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL environment variable not set")
+
+con = psycopg2.connect(DATABASE_URL)
 cur = con.cursor()
 
+# ----------------------------------------------------------
+# STUDENTS TABLE
+# ----------------------------------------------------------
 cur.execute("""
 CREATE TABLE IF NOT EXISTS students (
     uid TEXT UNIQUE NOT NULL,
     usn TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL,
     password_hash TEXT NOT NULL,
-    balance REAL DEFAULT 0,
-    blocked INTEGER DEFAULT 0,
+    balance NUMERIC DEFAULT 0,
+    blocked BOOLEAN DEFAULT FALSE,
     photo TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
 """)
 
+# ----------------------------------------------------------
+# TRANSACTIONS TABLE
+# ----------------------------------------------------------
 cur.execute("""
 CREATE TABLE IF NOT EXISTS transactions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     uid TEXT,
-    amount REAL,
+    amount NUMERIC,
     status TEXT,
-    timestamp TEXT DEFAULT CURRENT_TIMESTAMP
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
 """)
 
+# ----------------------------------------------------------
+# ADMINS TABLE
+# ----------------------------------------------------------
 cur.execute("""
 CREATE TABLE IF NOT EXISTS admins (
     username TEXT PRIMARY KEY,
     password_hash TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
 """)
 
 con.commit()
+cur.close()
 con.close()
-print("Database setup complete!")
 
-
+print("PostgreSQL database setup complete!")
