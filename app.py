@@ -21,6 +21,7 @@ if not os.path.exists(UPLOAD_FOLDER):
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
 # ----------------------------------------------------------
 # DATABASE (SQLite for now)
 # ----------------------------------------------------------
@@ -30,11 +31,13 @@ RUNTIME_DB = "/tmp/database.db"
 if not os.path.exists(RUNTIME_DB):
     if os.path.exists(LOCAL_DB):
         shutil.copy(LOCAL_DB, RUNTIME_DB)
+        print("Copied database.db to /tmp")
 
 def get_db():
     con = sqlite3.connect(RUNTIME_DB)
     con.row_factory = sqlite3.Row
     return con
+
 
 # ----------------------------------------------------------
 # HEALTH CHECK
@@ -43,23 +46,24 @@ def get_db():
 def health():
     return jsonify({"status": "ok"})
 
+
 # ----------------------------------------------------------
-# ADD STUDENT (ADMIN)
+# ADD STUDENT (ADMIN) — USN + UID + PASSWORD
 # ----------------------------------------------------------
 @app.route("/api/add_student", methods=["POST"])
 def add_student():
     data = request.json or {}
 
-    uid = (data.get("uid") or "").strip().upper()
     usn = (data.get("usn") or "").strip().upper()
+    uid = (data.get("uid") or "").strip().upper()
     name = data.get("name")
     password = data.get("password")
     balance = data.get("balance", 0)
 
-    if not uid or not usn or not name or not password:
+    if not usn or not uid or not name or not password:
         return jsonify({
             "status": "error",
-            "message": "UID, USN, Name and Password required"
+            "message": "USN, UID, Name and Password required"
         }), 400
 
     con = get_db()
@@ -67,22 +71,24 @@ def add_student():
 
     try:
         cur.execute("""
-            INSERT INTO students (uid, usn, name, password, balance)
+            INSERT INTO students (usn, uid, name, password, balance)
             VALUES (?, ?, ?, ?, ?)
-        """, (uid, usn, name, password, balance))
+        """, (usn, uid, name, password, balance))
         con.commit()
+
     except sqlite3.IntegrityError:
         con.close()
         return jsonify({
             "status": "error",
-            "message": "UID or USN already exists"
+            "message": "USN or UID already exists"
         }), 400
 
     con.close()
     return jsonify({"status": "success"})
 
+
 # ----------------------------------------------------------
-# STUDENT LOGIN (USN + PASSWORD)
+# STUDENT LOGIN — USN + PASSWORD
 # ----------------------------------------------------------
 @app.route("/api/login", methods=["POST"])
 def student_login_api():
@@ -113,8 +119,9 @@ def student_login_api():
     con.close()
     return jsonify({"status": "success"})
 
+
 # ----------------------------------------------------------
-# STUDENT INFO (ADMIN / INTERNAL)
+# STUDENT INFO (ADMIN / INTERNAL) — UID BASED
 # ----------------------------------------------------------
 @app.route("/api/student/<uid>")
 def student_info(uid):
@@ -143,8 +150,9 @@ def student_info(uid):
         "transactions": tx
     })
 
+
 # ----------------------------------------------------------
-# RFID VERIFY (ESP32)
+# RFID VERIFY (ESP32) — UID ONLY
 # ----------------------------------------------------------
 @app.route("/verify", methods=["GET"])
 def verify_card():
@@ -170,14 +178,18 @@ def verify_card():
         "balance": s["balance"]
     })
 
+
 # ----------------------------------------------------------
-# RFID DEDUCT (ESP32)
+# RFID DEDUCT (ESP32) — UID ONLY
 # ----------------------------------------------------------
 @app.route("/deduct", methods=["POST"])
 def deduct_amount():
     data = request.json or {}
     uid = (data.get("uid") or "").strip().upper()
     amount = data.get("amount")
+
+    if amount is None:
+        return jsonify({"ok": False, "error": "Amount required"}), 400
 
     con = get_db()
     cur = con.cursor()
@@ -214,61 +226,89 @@ def deduct_amount():
 
     return jsonify({"ok": True, "balance": new_balance})
 
+
 # ----------------------------------------------------------
-# ADD BALANCE
+# ADD BALANCE (ADMIN) — USN BASED
 # ----------------------------------------------------------
 @app.route("/api/add_balance", methods=["POST"])
 def add_balance():
     data = request.json or {}
-    uid = (data.get("uid") or "").strip().upper()
+
+    usn = (data.get("usn") or "").strip().upper()
     amount = data.get("amount")
+
+    if not usn or amount is None:
+        return jsonify({
+            "status": "error",
+            "message": "USN and amount required"
+        }), 400
 
     con = get_db()
     cur = con.cursor()
-    cur.execute("SELECT * FROM students WHERE uid=?", (uid,))
+    cur.execute("SELECT * FROM students WHERE usn=?", (usn,))
     s = cur.fetchone()
 
     if s is None:
         con.close()
-        return jsonify({"status": "error", "message": "Student not found"}), 404
+        return jsonify({
+            "status": "error",
+            "message": "Student not found"
+        }), 404
 
     new_balance = s["balance"] + amount
 
-    cur.execute("UPDATE students SET balance=? WHERE uid=?", (new_balance, uid))
+    cur.execute("UPDATE students SET balance=? WHERE usn=?", (new_balance, usn))
     cur.execute("""
         INSERT INTO transactions (uid, amount, status)
         VALUES (?, ?, ?)
-    """, (uid, amount, "topup"))
+    """, (s["uid"], amount, "topup"))
 
     con.commit()
     con.close()
-    return jsonify({"status": "success", "new_balance": new_balance})
+
+    return jsonify({
+        "status": "success",
+        "new_balance": new_balance
+    })
+
 
 # ----------------------------------------------------------
-# BLOCK / UNBLOCK
+# BLOCK / UNBLOCK (ADMIN) — USN BASED
 # ----------------------------------------------------------
 @app.route("/api/block_card", methods=["POST"])
 def block_card():
-    uid = (request.json.get("uid") or "").strip().upper()
+    usn = (request.json.get("usn") or "").strip().upper()
+
+    if not usn:
+        return jsonify({"status": "error", "message": "USN required"}), 400
+
     con = get_db()
     cur = con.cursor()
-    cur.execute("UPDATE students SET blocked=1 WHERE uid=?", (uid,))
+    cur.execute("UPDATE students SET blocked=1 WHERE usn=?", (usn,))
     con.commit()
     con.close()
+
     return jsonify({"status": "success"})
+
 
 @app.route("/api/unblock_card", methods=["POST"])
 def unblock_card():
-    uid = (request.json.get("uid") or "").strip().upper()
+    usn = (request.json.get("usn") or "").strip().upper()
+
+    if not usn:
+        return jsonify({"status": "error", "message": "USN required"}), 400
+
     con = get_db()
     cur = con.cursor()
-    cur.execute("UPDATE students SET blocked=0 WHERE uid=?", (uid,))
+    cur.execute("UPDATE students SET blocked=0 WHERE usn=?", (usn,))
     con.commit()
     con.close()
+
     return jsonify({"status": "success"})
 
+
 # ----------------------------------------------------------
-# PHOTO UPLOAD
+# PHOTO UPLOAD — UID BASED
 # ----------------------------------------------------------
 @app.route("/api/upload_photo", methods=["POST"])
 def upload_photo():
@@ -292,6 +332,7 @@ def upload_photo():
     con.close()
 
     return jsonify({"status": "success", "filename": filename})
+
 
 # ----------------------------------------------------------
 # HTML ROUTES
@@ -319,6 +360,7 @@ def admin_page():
 @app.route("/kiosk")
 def kiosk_page():
     return render_template("kiosk.html")
+
 
 # ----------------------------------------------------------
 # RUN
