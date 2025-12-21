@@ -213,10 +213,15 @@ function getQueryParam(p) {
 }
 
 function loadStudent() {
-    const uid = getQueryParam("uid");
-    if (!uid) return alert("Invalid session");
+    const usn = getQueryParam("usn");
+    if (!usn) {
+        alert("Invalid session");
+        window.location.href = "/student_login";
+        return;
+    }
 
-    fetch(`${BASE}/api/student/${uid}`)
+    fetch(`${BASE}/api/student/by_usn/${usn}`)
+
         .then(r => r.json())
         .then(data => {
             const s = data.student;
