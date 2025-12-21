@@ -130,6 +130,53 @@
             color: #ff6b6b;
         }
 
+        /* ---------------- MODAL ---------------- */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-box {
+            background: #1a1a25;
+            padding: 30px;
+            border-radius: 16px;
+            width: 360px;
+        }
+
+        .modal-box h3 {
+            margin-top: 0;
+        }
+
+        .modal-box input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 12px;
+            border-radius: 10px;
+            border: none;
+            outline: none;
+            background: #2a2a38;
+            color: #fff;
+        }
+
+        .modal-box button {
+            width: 100%;
+            padding: 12px;
+            background: #3ddc97;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .msg {
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
         /* ---------------- RESPONSIVE ---------------- */
         @media (max-width: 900px) {
             .metrics {
@@ -152,7 +199,7 @@
         <h2>TapFinity</h2>
         <div class="nav-item">Dashboard</div>
         <div class="nav-item">Transactions</div>
-        <div class="nav-item">Change Password</div>
+        <div class="nav-item" onclick="openPasswordModal()">Change Password</div>
         <div class="nav-item">Profile</div>
         <div class="nav-item" onclick="logout()">Logout</div>
     </div>
@@ -205,6 +252,23 @@
     </div>
 </div>
 
+<!-- CHANGE PASSWORD MODAL -->
+<div id="passwordModal" class="modal">
+    <div class="modal-box">
+        <h3>Change Password</h3>
+
+        <input id="old_password" type="password" placeholder="Old Password">
+        <input id="new_password" type="password" placeholder="New Password">
+        <input id="confirm_password" type="password" placeholder="Confirm New Password">
+
+        <button onclick="submitPasswordChange()">Update Password</button>
+        <div id="pwd_msg" class="msg"></div>
+
+        <div style="margin-top:15px; text-align:center; cursor:pointer; color:#aaa;"
+             onclick="closePasswordModal()">Cancel</div>
+    </div>
+</div>
+
 <script>
 const BASE = "https://tapfinity-backed.onrender.com";
 
@@ -221,7 +285,6 @@ function loadStudent() {
     }
 
     fetch(`${BASE}/api/student/by_usn/${usn}`)
-
         .then(r => r.json())
         .then(data => {
             const s = data.student;
@@ -229,8 +292,7 @@ function loadStudent() {
 
             document.getElementById("student_name").textContent = s.name;
             document.getElementById("balance_value").textContent = "₹" + s.balance;
-            document.getElementById("card_status").textContent =
-                s.blocked ? "BLOCKED" : "ACTIVE";
+            document.getElementById("card_status").textContent = s.blocked ? "BLOCKED" : "ACTIVE";
 
             document.getElementById("profile_photo").src =
                 s.photo ? `${BASE}/static/photos/${s.photo}` :
@@ -257,6 +319,60 @@ function loadStudent() {
             document.getElementById("tx_count").textContent = tx.length;
             document.getElementById("tx_table").innerHTML = rows;
         });
+}
+
+function openPasswordModal() {
+    document.getElementById("passwordModal").style.display = "flex";
+}
+
+function closePasswordModal() {
+    document.getElementById("passwordModal").style.display = "none";
+    document.getElementById("pwd_msg").textContent = "";
+}
+
+function submitPasswordChange() {
+    const usn = getQueryParam("usn");
+    const oldPwd = document.getElementById("old_password").value;
+    const newPwd = document.getElementById("new_password").value;
+    const confirmPwd = document.getElementById("confirm_password").value;
+    const msg = document.getElementById("pwd_msg");
+
+    if (!oldPwd || !newPwd || !confirmPwd) {
+        msg.textContent = "All fields are required";
+        msg.style.color = "#ff6b6b";
+        return;
+    }
+
+    if (newPwd !== confirmPwd) {
+        msg.textContent = "Passwords do not match";
+        msg.style.color = "#ff6b6b";
+        return;
+    }
+
+    fetch(`${BASE}/api/student/change_password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            usn: usn,
+            old_password: oldPwd,
+            new_password: newPwd
+        })
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.status === "success") {
+            msg.textContent = "Password updated successfully";
+            msg.style.color = "#3ddc97";
+            setTimeout(closePasswordModal, 1500);
+        } else {
+            msg.textContent = d.message;
+            msg.style.color = "#ff6b6b";
+        }
+    })
+    .catch(() => {
+        msg.textContent = "Network error";
+        msg.style.color = "#ff6b6b";
+    });
 }
 
 function logout() {
