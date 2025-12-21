@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>TapFinity Admin</title>
+    <title>TapFinity Admin Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <style>
         body {
             margin: 0;
             font-family: "Segoe UI", Roboto, sans-serif;
-            background: #f5f8ff;
-            color: #111;
+            background: #f4f7fb;
+            color: #1f2937;
         }
 
         .layout {
@@ -17,10 +17,10 @@
             min-height: 100vh;
         }
 
-        /* -------- SIDEBAR -------- */
+        /* ---------- SIDEBAR ---------- */
         .sidebar {
             width: 240px;
-            background: #0b5cff;
+            background: #0f4c81;
             color: white;
             padding: 20px;
         }
@@ -30,98 +30,113 @@
             margin-bottom: 30px;
         }
 
-        .nav {
-            padding: 12px 14px;
+        .nav-item {
+            padding: 12px 15px;
             border-radius: 10px;
             cursor: pointer;
             margin-bottom: 10px;
         }
 
-        .nav:hover {
+        .nav-item:hover {
             background: rgba(255,255,255,0.15);
         }
 
-        /* -------- MAIN -------- */
+        /* ---------- MAIN ---------- */
         .main {
             flex: 1;
             padding: 30px;
         }
 
-        .title {
-            font-size: 26px;
-            font-weight: 700;
-            margin-bottom: 25px;
+        .section {
+            margin-bottom: 40px;
         }
 
-        .cards {
+        .section-title {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        /* ---------- METRICS ---------- */
+        .metrics {
             display: grid;
-            grid-template-columns: repeat(4,1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 20px;
-            margin-bottom: 30px;
+            margin-bottom: 40px;
         }
 
         .card {
             background: white;
             padding: 20px;
-            border-radius: 16px;
+            border-radius: 14px;
             box-shadow: 0 6px 18px rgba(0,0,0,0.08);
         }
 
         .card-title {
             font-size: 14px;
-            color: #666;
+            color: #6b7280;
         }
 
         .card-value {
-            font-size: 28px;
+            font-size: 26px;
             font-weight: 700;
             margin-top: 6px;
-            color: #0b5cff;
         }
 
-        .section {
-            background: white;
-            padding: 24px;
-            border-radius: 18px;
-            margin-bottom: 25px;
-            box-shadow: 0 6px 18px rgba(0,0,0,0.08);
-        }
-
-        .section h3 {
-            margin-top: 0;
-        }
-
+        /* ---------- FORMS ---------- */
         input {
             width: 100%;
             padding: 12px;
             margin-bottom: 12px;
-            border-radius: 12px;
-            border: 1px solid #ccc;
+            border-radius: 10px;
+            border: 1px solid #d1d5db;
             font-size: 15px;
         }
 
         button {
             padding: 12px 16px;
-            border-radius: 12px;
-            border: none;
-            background: #0b5cff;
+            background: #2563eb;
             color: white;
-            font-weight: 600;
+            border: none;
+            border-radius: 10px;
             cursor: pointer;
-        }
-
-        .danger {
-            background: #ff3b30;
-        }
-
-        .msg {
-            margin-top: 10px;
             font-weight: 600;
         }
 
-        @media(max-width:900px){
-            .cards { grid-template-columns: repeat(2,1fr); }
-            .sidebar { display:none; }
+        button.danger {
+            background: #dc2626;
+        }
+
+        /* ---------- TABLE ---------- */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+        }
+
+        th, td {
+            padding: 14px;
+            text-align: left;
+        }
+
+        th {
+            background: #e5e7eb;
+            font-weight: 600;
+        }
+
+        tr:not(:last-child) {
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .status-success { color: #059669; }
+        .status-failed { color: #dc2626; }
+
+        @media (max-width: 900px) {
+            .metrics { grid-template-columns: repeat(2,1fr); }
+            .sidebar { display: none; }
         }
     </style>
 </head>
@@ -133,65 +148,82 @@
     <!-- SIDEBAR -->
     <div class="sidebar">
         <h2>TapFinity</h2>
-        <div class="nav">Dashboard</div>
-        <div class="nav" onclick="scrollToId('addStudent')">Add Student</div>
-        <div class="nav" onclick="scrollToId('balance')">Add Balance</div>
-        <div class="nav" onclick="scrollToId('block')">Block / Unblock</div>
-        <div class="nav" onclick="logout()">Logout</div>
+        <div class="nav-item" onclick="scrollToId('analytics')">Analytics</div>
+        <div class="nav-item" onclick="scrollToId('addStudent')">Add Student</div>
+        <div class="nav-item" onclick="scrollToId('balance')">Add Balance</div>
+        <div class="nav-item" onclick="scrollToId('block')">Block / Unblock</div>
+        <div class="nav-item" onclick="scrollToId('transactions')">Transactions</div>
+        <div class="nav-item" onclick="logout()">Logout</div>
     </div>
 
     <!-- MAIN -->
     <div class="main">
 
-        <div class="title">Admin Dashboard</div>
-
-        <!-- METRICS -->
-        <div class="cards">
-            <div class="card">
-                <div class="card-title">Total Transactions</div>
-                <div class="card-value" id="tx_count">—</div>
-            </div>
-            <div class="card">
-                <div class="card-title">Total Spent</div>
-                <div class="card-value" id="spent">—</div>
-            </div>
-            <div class="card">
-                <div class="card-title">Total Topups</div>
-                <div class="card-value" id="topups">—</div>
-            </div>
-            <div class="card">
-                <div class="card-title">Blocked Cards</div>
-                <div class="card-value" id="blocked">—</div>
+        <!-- ANALYTICS -->
+        <div id="analytics" class="section">
+            <div class="section-title">Analytics</div>
+            <div class="metrics">
+                <div class="card">
+                    <div class="card-title">Total Students</div>
+                    <div class="card-value" id="m_students">0</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Total Money</div>
+                    <div class="card-value" id="m_money">₹0</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Total Spent</div>
+                    <div class="card-value" id="m_spent">₹0</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Transactions</div>
+                    <div class="card-value" id="m_tx">0</div>
+                </div>
             </div>
         </div>
 
         <!-- ADD STUDENT -->
         <div id="addStudent" class="section">
-            <h3>Add Student</h3>
-            <input id="usn" placeholder="USN">
-            <input id="uid" placeholder="Card UID">
-            <input id="name" placeholder="Name">
-            <input id="phone" placeholder="WhatsApp Number (91xxxxxxxxxx)">
-            <input id="password" placeholder="Password">
-            <input id="balance" type="number" placeholder="Initial Balance">
-            <button onclick="addStudent()">Create Student</button>
-            <div id="addMsg" class="msg"></div>
+            <div class="section-title">Add Student</div>
+            <input id="s_usn" placeholder="USN">
+            <input id="s_uid" placeholder="RFID UID">
+            <input id="s_name" placeholder="Name">
+            <input id="s_phone" placeholder="Phone (WhatsApp)">
+            <input id="s_pass" placeholder="Password">
+            <input id="s_bal" type="number" placeholder="Initial Balance">
+            <button onclick="addStudent()">Add Student</button>
         </div>
 
         <!-- ADD BALANCE -->
         <div id="balance" class="section">
-            <h3>Add Balance</h3>
-            <input id="bal_usn" placeholder="USN">
-            <input id="bal_amt" type="number" placeholder="Amount">
+            <div class="section-title">Add Balance</div>
+            <input id="b_usn" placeholder="USN">
+            <input id="b_amt" type="number" placeholder="Amount">
             <button onclick="addBalance()">Add Balance</button>
         </div>
 
-        <!-- BLOCK / UNBLOCK -->
+        <!-- BLOCK -->
         <div id="block" class="section">
-            <h3>Block / Unblock Card</h3>
+            <div class="section-title">Block / Unblock Card</div>
             <input id="blk_usn" placeholder="USN">
-            <button class="danger" onclick="blockCard()">Block</button>
-            <button onclick="unblockCard()" style="margin-left:10px;">Unblock</button>
+            <button class="danger" onclick="block()">Block</button>
+            <button onclick="unblock()">Unblock</button>
+        </div>
+
+        <!-- TRANSACTIONS -->
+        <div id="transactions" class="section">
+            <div class="section-title">Recent Transactions</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>UID</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+                <tbody id="tx_table"></tbody>
+            </table>
         </div>
 
     </div>
@@ -200,57 +232,81 @@
 <script>
 const BASE = "https://tapfinity-backed.onrender.com";
 
-function scrollToId(id){
-    document.getElementById(id).scrollIntoView({behavior:"smooth"});
+function scrollToId(id) {
+    document.getElementById(id).scrollIntoView({ behavior: "smooth" });
 }
 
-function addStudent(){
-    fetch(BASE+"/api/add_student",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-            usn:usn.value,
-            uid:uid.value,
-            name:name.value,
-            phone:phone.value,
-            password:password.value,
-            balance:Number(balance.value)
+function logout() {
+    window.location.href = "/admin_login";
+}
+
+/* ---------------- API CALLS ---------------- */
+
+function addStudent() {
+    fetch(BASE + "/api/add_student", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+            usn: s_usn.value,
+            uid: s_uid.value,
+            name: s_name.value,
+            phone: s_phone.value,
+            password: s_pass.value,
+            balance: Number(s_bal.value)
         })
-    }).then(r=>r.json()).then(d=>{
-        addMsg.textContent = d.status==="success" ? "Student created ✔" : d.message;
-    });
+    }).then(()=>location.reload());
 }
 
-function addBalance(){
-    fetch(BASE+"/api/add_balance",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-            usn:bal_usn.value,
-            amount:Number(bal_amt.value)
+function addBalance() {
+    fetch(BASE + "/api/add_balance", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+            usn: b_usn.value,
+            amount: Number(b_amt.value)
         })
-    });
+    }).then(()=>location.reload());
 }
 
-function blockCard(){
-    fetch(BASE+"/api/block_card",{
+function block() {
+    fetch(BASE + "/api/block_card", {
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({usn:blk_usn.value})
+        body:JSON.stringify({usn: blk_usn.value})
     });
 }
 
-function unblockCard(){
-    fetch(BASE+"/api/unblock_card",{
+function unblock() {
+    fetch(BASE + "/api/unblock_card", {
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({usn:blk_usn.value})
+        body:JSON.stringify({usn: blk_usn.value})
     });
 }
 
-function logout(){
-    window.location.href="/admin_login";
-}
+/* ---------------- LOAD ANALYTICS ---------------- */
+fetch(BASE + "/api/admin/analytics")
+.then(r=>r.json())
+.then(d=>{
+    m_students.textContent = d.students;
+    m_money.textContent = "₹" + d.total_money;
+    m_spent.textContent = "₹" + d.total_spent;
+    m_tx.textContent = d.transactions;
+});
+
+/* ---------------- LOAD TRANSACTIONS ---------------- */
+fetch(BASE + "/api/admin/transactions")
+.then(r=>r.json())
+.then(rows=>{
+    tx_table.innerHTML = rows.map(t=>`
+        <tr>
+            <td>${t.uid}</td>
+            <td>₹${t.amount}</td>
+            <td class="${t.status==='success'?'status-success':'status-failed'}">${t.status}</td>
+            <td>${t.timestamp}</td>
+        </tr>
+    `).join("");
+});
 </script>
 
 </body>
