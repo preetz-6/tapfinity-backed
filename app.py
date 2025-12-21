@@ -36,6 +36,44 @@ def get_db():
         cursor_factory=psycopg2.extras.RealDictCursor
     )
 
+def init_db():
+    con = get_db()
+    cur = con.cursor()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS students (
+        uid TEXT UNIQUE NOT NULL,
+        usn TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        balance NUMERIC DEFAULT 0,
+        blocked BOOLEAN DEFAULT FALSE,
+        photo TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS transactions (
+        id SERIAL PRIMARY KEY,
+        uid TEXT,
+        amount NUMERIC,
+        status TEXT,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS admins (
+        username TEXT PRIMARY KEY,
+        password_hash TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+    con.commit()
+    con.close()
+
 
 # ----------------------------------------------------------
 # HEALTH CHECK
