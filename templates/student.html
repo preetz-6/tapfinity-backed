@@ -22,6 +22,8 @@
             width: 240px;
             background: #15151c;
             padding: 20px;
+            position: fixed;
+            height: 100vh;
         }
 
         .sidebar h2 {
@@ -45,6 +47,7 @@
 
         /* ---------------- MAIN ---------------- */
         .main {
+            margin-left: 240px;
             flex: 1;
             padding: 30px;
         }
@@ -73,7 +76,7 @@
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 20px;
-            margin-bottom: 35px;
+            margin-bottom: 50px;
         }
 
         .card {
@@ -95,8 +98,9 @@
 
         /* ---------------- TABLE ---------------- */
         .section-title {
-            font-size: 20px;
+            font-size: 22px;
             margin-bottom: 15px;
+            margin-top: 60px;
         }
 
         table {
@@ -147,17 +151,12 @@
             width: 360px;
         }
 
-        .modal-box h3 {
-            margin-top: 0;
-        }
-
         .modal-box input {
             width: 100%;
             padding: 12px;
             margin-bottom: 12px;
             border-radius: 10px;
             border: none;
-            outline: none;
             background: #2a2a38;
             color: #fff;
         }
@@ -177,14 +176,15 @@
             font-size: 14px;
         }
 
-        /* ---------------- RESPONSIVE ---------------- */
         @media (max-width: 900px) {
-            .metrics {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
             .sidebar {
                 display: none;
+            }
+            .main {
+                margin-left: 0;
+            }
+            .metrics {
+                grid-template-columns: repeat(2, 1fr);
             }
         }
     </style>
@@ -197,8 +197,8 @@
     <!-- SIDEBAR -->
     <div class="sidebar">
         <h2>TapFinity</h2>
-        <div class="nav-item">Dashboard</div>
-        <div class="nav-item">Transactions</div>
+        <div class="nav-item" onclick="scrollToSection('dashboard')">Dashboard</div>
+        <div class="nav-item" onclick="scrollToSection('transactions')">Transactions</div>
         <div class="nav-item" onclick="openPasswordModal()">Change Password</div>
         <div class="nav-item">Profile</div>
         <div class="nav-item" onclick="logout()">Logout</div>
@@ -207,47 +207,51 @@
     <!-- MAIN -->
     <div class="main">
 
-        <div class="header">
-            <img id="profile_photo" class="profile-pic" src="">
-            <div class="student-name" id="student_name">Loading...</div>
-        </div>
-
-        <!-- METRICS -->
-        <div class="metrics">
-            <div class="card">
-                <div class="card-title">Current Balance</div>
-                <div class="card-value" id="balance_value">₹0</div>
+        <!-- DASHBOARD -->
+        <div id="dashboard">
+            <div class="header">
+                <img id="profile_photo" class="profile-pic">
+                <div class="student-name" id="student_name">Loading...</div>
             </div>
 
-            <div class="card">
-                <div class="card-title">Total Spent</div>
-                <div class="card-value" id="total_spent">₹0</div>
-            </div>
+            <div class="metrics">
+                <div class="card">
+                    <div class="card-title">Current Balance</div>
+                    <div class="card-value" id="balance_value">₹0</div>
+                </div>
 
-            <div class="card">
-                <div class="card-title">Transactions</div>
-                <div class="card-value" id="tx_count">0</div>
-            </div>
+                <div class="card">
+                    <div class="card-title">Total Spent</div>
+                    <div class="card-value" id="total_spent">₹0</div>
+                </div>
 
-            <div class="card">
-                <div class="card-title">Card Status</div>
-                <div class="card-value" id="card_status">ACTIVE</div>
+                <div class="card">
+                    <div class="card-title">Transactions</div>
+                    <div class="card-value" id="tx_count">0</div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Card Status</div>
+                    <div class="card-value" id="card_status">ACTIVE</div>
+                </div>
             </div>
         </div>
 
         <!-- TRANSACTIONS -->
-        <div class="section-title">Recent Transactions</div>
+        <div id="transactions">
+            <div class="section-title">Recent Transactions</div>
 
-        <table>
-            <thead>
-                <tr>
-                    <th>Amount</th>
-                    <th>Status</th>
-                    <th>Date</th>
-                </tr>
-            </thead>
-            <tbody id="tx_table"></tbody>
-        </table>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody id="tx_table"></tbody>
+            </table>
+        </div>
 
     </div>
 </div>
@@ -264,7 +268,7 @@
         <button onclick="submitPasswordChange()">Update Password</button>
         <div id="pwd_msg" class="msg"></div>
 
-        <div style="margin-top:15px; text-align:center; cursor:pointer; color:#aaa;"
+        <div style="margin-top:15px;text-align:center;cursor:pointer;color:#aaa"
              onclick="closePasswordModal()">Cancel</div>
     </div>
 </div>
@@ -276,10 +280,13 @@ function getQueryParam(p) {
     return new URL(window.location.href).searchParams.get(p);
 }
 
+function scrollToSection(id) {
+    document.getElementById(id).scrollIntoView({ behavior: "smooth" });
+}
+
 function loadStudent() {
     const usn = getQueryParam("usn");
     if (!usn) {
-        alert("Invalid session");
         window.location.href = "/student_login";
         return;
     }
@@ -298,24 +305,18 @@ function loadStudent() {
                 s.photo ? `${BASE}/static/photos/${s.photo}` :
                 "https://via.placeholder.com/70";
 
-            let totalSpent = 0;
-            let rows = "";
-
+            let total = 0, rows = "";
             tx.forEach(t => {
-                if (t.status === "success") totalSpent += Number(t.amount);
-
+                if (t.status === "success") total += Number(t.amount);
                 rows += `
                     <tr>
                         <td>₹ ${t.amount}</td>
-                        <td class="${t.status === 'success' ? 'status-success' : 'status-failed'}">
-                            ${t.status}
-                        </td>
+                        <td class="${t.status === 'success' ? 'status-success' : 'status-failed'}">${t.status}</td>
                         <td>${t.timestamp}</td>
-                    </tr>
-                `;
+                    </tr>`;
             });
 
-            document.getElementById("total_spent").textContent = "₹" + totalSpent;
+            document.getElementById("total_spent").textContent = "₹" + total;
             document.getElementById("tx_count").textContent = tx.length;
             document.getElementById("tx_table").innerHTML = rows;
         });
@@ -327,21 +328,14 @@ function openPasswordModal() {
 
 function closePasswordModal() {
     document.getElementById("passwordModal").style.display = "none";
-    document.getElementById("pwd_msg").textContent = "";
 }
 
 function submitPasswordChange() {
     const usn = getQueryParam("usn");
-    const oldPwd = document.getElementById("old_password").value;
-    const newPwd = document.getElementById("new_password").value;
-    const confirmPwd = document.getElementById("confirm_password").value;
-    const msg = document.getElementById("pwd_msg");
-
-    if (!oldPwd || !newPwd || !confirmPwd) {
-        msg.textContent = "All fields are required";
-        msg.style.color = "#ff6b6b";
-        return;
-    }
+    const oldPwd = old_password.value;
+    const newPwd = new_password.value;
+    const confirmPwd = confirm_password.value;
+    const msg = pwd_msg;
 
     if (newPwd !== confirmPwd) {
         msg.textContent = "Passwords do not match";
@@ -352,26 +346,13 @@ function submitPasswordChange() {
     fetch(`${BASE}/api/student/change_password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            usn: usn,
-            old_password: oldPwd,
-            new_password: newPwd
-        })
+        body: JSON.stringify({ usn, old_password: oldPwd, new_password: newPwd })
     })
     .then(r => r.json())
     .then(d => {
-        if (d.status === "success") {
-            msg.textContent = "Password updated successfully";
-            msg.style.color = "#3ddc97";
-            setTimeout(closePasswordModal, 1500);
-        } else {
-            msg.textContent = d.message;
-            msg.style.color = "#ff6b6b";
-        }
-    })
-    .catch(() => {
-        msg.textContent = "Network error";
-        msg.style.color = "#ff6b6b";
+        msg.textContent = d.message;
+        msg.style.color = d.status === "success" ? "#3ddc97" : "#ff6b6b";
+        if (d.status === "success") setTimeout(closePasswordModal, 1500);
     });
 }
 
