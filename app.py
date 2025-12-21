@@ -5,6 +5,8 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 import psycopg2
 import psycopg2.extras
+from twilio.rest import Client
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
@@ -27,9 +29,8 @@ def allowed_file(filename):
 # DATABASE (PostgreSQL)
 # ----------------------------------------------------------
 DATABASE_URL = os.getenv("DATABASE_URL")
-
 if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL environment variable not set")
+    raise RuntimeError("DATABASE_URL not set")
 
 def get_db():
     return psycopg2.connect(
@@ -37,9 +38,32 @@ def get_db():
         cursor_factory=psycopg2.extras.RealDictCursor
     )
 
+# ----------------------------------------------------------
+# TWILIO (WhatsApp)
+# ----------------------------------------------------------
+TWILIO_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+TWILIO_FROM = os.getenv("TWILIO_WHATSAPP_FROM")  # whatsapp:+14155238886
+
+twilio_client = None
+if TWILIO_SID and TWILIO_TOKEN:
+    twilio_client = Client(TWILIO_SID, TWILIO_TOKEN)
+
+def send_whatsapp(phone, message):
+    if not phone or not twilio_client:
+        return
+    try:
+        twilio_client.messages.create(
+            from_=TWILIO_FROM,
+            to=f"whatsapp:{phone}",
+            body=message
+        )
+    except Exception as e:
+        print("WhatsApp error:", e)
+
 
 # ----------------------------------------------------------
-# INITIALIZE DB (Render free-tier safe)
+# INIT DB (safe on Render)
 # ----------------------------------------------------------
 def init_db():
     con = get_db()
@@ -50,6 +74,7 @@ def init_db():
         uid TEXT UNIQUE NOT NULL,
         usn TEXT UNIQUE NOT NULL,
         name TEXT NOT NULL,
+        phone TEXT,
         password_hash TEXT NOT NULL,
         balance NUMERIC DEFAULT 0,
         blocked BOOLEAN DEFAULT FALSE,
@@ -68,23 +93,13 @@ def init_db():
     )
     """)
 
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS admins (
-        username TEXT PRIMARY KEY,
-        password_hash TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-    """)
-
     con.commit()
     con.close()
 
-# Call AFTER definition
 init_db()
 
-
 # ----------------------------------------------------------
-# HEALTH CHECK
+# HEALTH
 # ----------------------------------------------------------
 @app.route("/api/health")
 def health():
@@ -92,404 +107,268 @@ def health():
 
 
 # ----------------------------------------------------------
-# ADD STUDENT (ADMIN) — USN + UID + PASSWORD
+# ADD STUDENT (ADMIN)
 # ----------------------------------------------------------
 @app.route("/api/add_student", methods=["POST"])
 def add_student():
-    data = request.json or {}
+    d = request.json or {}
 
-    usn = (data.get("usn") or "").strip().upper()
-    uid = (data.get("uid") or "").strip().upper()
-    name = data.get("name")
-    password = data.get("password")
-    balance = data.get("balance", 0)
+    usn = d.get("usn","").upper()
+    uid = d.get("uid","").upper()
+    name = d.get("name")
+    phone = d.get("phone")
+    password = d.get("password")
+    balance = d.get("balance", 0)
 
-    if not usn or not uid or not name or not password:
-        return jsonify({
-            "status": "error",
-            "message": "USN, UID, Name and Password required"
-        }), 400
+    if not all([usn, uid, name, phone, password]):
+        return jsonify({"status":"error","message":"All fields required"}), 400
 
-    password_hash = generate_password_hash(password)
+    pwd_hash = generate_password_hash(password)
 
     con = get_db()
     cur = con.cursor()
-
     try:
         cur.execute("""
-            INSERT INTO students (usn, uid, name, password_hash, balance)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (usn, uid, name, password_hash, balance))
+            INSERT INTO students (usn, uid, name, phone, password_hash, balance)
+            VALUES (%s,%s,%s,%s,%s,%s)
+        """, (usn, uid, name, phone, pwd_hash, balance))
         con.commit()
-
     except psycopg2.errors.UniqueViolation:
         con.rollback()
+        return jsonify({"status":"error","message":"USN or UID exists"}), 400
+    finally:
         con.close()
-        return jsonify({
-            "status": "error",
-            "message": "USN or UID already exists"
-        }), 400
 
-    con.close()
-    return jsonify({"status": "success"})
+    send_whatsapp(phone, f"TapFinity ✅\nAccount created\nUSN: {usn}")
+
+    return jsonify({"status":"success"})
 
 
 # ----------------------------------------------------------
-# STUDENT LOGIN — USN + PASSWORD
+# STUDENT LOGIN
 # ----------------------------------------------------------
 @app.route("/api/login", methods=["POST"])
-def student_login_api():
-    data = request.json or {}
-
-    usn = (data.get("usn") or "").strip().upper()
-    password = data.get("password")
-
-    if not usn or not password:
-        return jsonify({
-            "status": "error",
-            "message": "USN and password required"
-        }), 400
+def student_login():
+    d = request.json or {}
+    usn = d.get("usn","").upper()
+    password = d.get("password")
 
     con = get_db()
     cur = con.cursor()
-    cur.execute("SELECT * FROM students WHERE usn=%s", (usn,))
+    cur.execute("SELECT password_hash FROM students WHERE usn=%s", (usn,))
     s = cur.fetchone()
-
-    if s is None:
-        con.close()
-        return jsonify({"status": "error", "message": "Student not found"}), 404
-
-    if not check_password_hash(s["password_hash"], password):
-        con.close()
-        return jsonify({"status": "error", "message": "Incorrect password"}), 403
-
     con.close()
-    return jsonify({"status": "success"})
+
+    if not s or not check_password_hash(s["password_hash"], password):
+        return jsonify({"status":"error","message":"Invalid credentials"}), 403
+
+    return jsonify({"status":"success"})
+
 
 # ----------------------------------------------------------
-# CHANGE PASSWORD (STUDENT) — USN BASED
+# CHANGE PASSWORD
 # ----------------------------------------------------------
 @app.route("/api/student/change_password", methods=["POST"])
 def change_password():
-    data = request.json or {}
-
-    usn = (data.get("usn") or "").strip().upper()
-    old_password = data.get("old_password")
-    new_password = data.get("new_password")
-
-    if not usn or not old_password or not new_password:
-        return jsonify({
-            "status": "error",
-            "message": "All fields are required"
-        }), 400
+    d = request.json or {}
+    usn = d.get("usn","").upper()
+    old = d.get("old_password")
+    new = d.get("new_password")
 
     con = get_db()
     cur = con.cursor()
-
-    cur.execute("SELECT password_hash FROM students WHERE usn=%s", (usn,))
+    cur.execute("SELECT password_hash, phone FROM students WHERE usn=%s", (usn,))
     s = cur.fetchone()
 
-    if s is None:
+    if not s or not check_password_hash(s["password_hash"], old):
         con.close()
-        return jsonify({
-            "status": "error",
-            "message": "Student not found"
-        }), 404
-
-    if not check_password_hash(s["password_hash"], old_password):
-        con.close()
-        return jsonify({
-            "status": "error",
-            "message": "Old password is incorrect"
-        }), 403
-
-    new_hash = generate_password_hash(new_password)
+        return jsonify({"status":"error","message":"Incorrect password"}), 403
 
     cur.execute(
         "UPDATE students SET password_hash=%s WHERE usn=%s",
-        (new_hash, usn)
+        (generate_password_hash(new), usn)
     )
-
     con.commit()
     con.close()
 
-    return jsonify({
-        "status": "success",
-        "message": "Password updated successfully"
-    })
+    send_whatsapp(s["phone"], "TapFinity 🔐\nPassword changed successfully")
+
+    return jsonify({"status":"success"})
 
 
 # ----------------------------------------------------------
-# STUDENT INFO (ADMIN / INTERNAL) — UID BASED
-# ----------------------------------------------------------
-@app.route("/api/student/<uid>")
-def student_info(uid):
-    uid = uid.strip().upper()
-    con = get_db()
-    cur = con.cursor()
-
-    cur.execute("SELECT * FROM students WHERE uid=%s", (uid,))
-    s = cur.fetchone()
-
-    if s is None:
-        con.close()
-        return jsonify({"status": "error", "message": "Student not found"}), 404
-
-    cur.execute("""
-        SELECT * FROM transactions
-        WHERE uid=%s
-        ORDER BY id DESC LIMIT 5
-    """, (uid,))
-    tx = cur.fetchall()
-
-    con.close()
-    return jsonify({
-        "status": "success",
-        "student": s,
-        "transactions": tx
-    })
-
-
-# ----------------------------------------------------------
-# RFID VERIFY (ESP32) — UID ONLY
-# ----------------------------------------------------------
-@app.route("/verify", methods=["GET"])
-def verify_card():
-    uid = (request.args.get("uid") or "").strip().upper()
-
-    con = get_db()
-    cur = con.cursor()
-    cur.execute(
-        "SELECT name, balance, blocked FROM students WHERE uid=%s",
-        (uid,)
-    )
-    s = cur.fetchone()
-
-    if s is None:
-        con.close()
-        return jsonify({"ok": False, "error": "User not found"}), 404
-
-    if s["blocked"]:
-        con.close()
-        return jsonify({"ok": False, "error": "Card blocked"}), 403
-
-    con.close()
-    return jsonify({
-        "ok": True,
-        "name": s["name"],
-        "balance": float(s["balance"])
-    })
-
-
-# ----------------------------------------------------------
-# RFID DEDUCT (ESP32) — UID ONLY
-# ----------------------------------------------------------
-@app.route("/deduct", methods=["POST"])
-def deduct_amount():
-    data = request.json or {}
-    uid = (data.get("uid") or "").strip().upper()
-    amount = data.get("amount")
-
-    if amount is None:
-        return jsonify({"ok": False, "error": "Amount required"}), 400
-
-    con = get_db()
-    cur = con.cursor()
-    cur.execute("SELECT * FROM students WHERE uid=%s", (uid,))
-    s = cur.fetchone()
-
-    if s is None:
-        con.close()
-        return jsonify({"ok": False, "error": "User not found"}), 404
-
-    if s["blocked"]:
-        con.close()
-        return jsonify({"ok": False, "error": "Card blocked"}), 403
-
-    if s["balance"] < amount:
-        cur.execute("""
-            INSERT INTO transactions (uid, amount, status)
-            VALUES (%s, %s, %s)
-        """, (uid, amount, "failed_insufficient"))
-        con.commit()
-        con.close()
-        return jsonify({"ok": False, "error": "Insufficient balance"}), 400
-
-    new_balance = s["balance"] - amount
-
-    cur.execute("UPDATE students SET balance=%s WHERE uid=%s", (new_balance, uid))
-    cur.execute("""
-        INSERT INTO transactions (uid, amount, status)
-        VALUES (%s, %s, %s)
-    """, (uid, amount, "success"))
-
-    con.commit()
-    con.close()
-
-    return jsonify({"ok": True, "balance": float(new_balance)})
-
-
-# ----------------------------------------------------------
-# ADD BALANCE (ADMIN) — USN BASED
-# ----------------------------------------------------------
-@app.route("/api/add_balance", methods=["POST"])
-def add_balance():
-    data = request.json or {}
-
-    usn = (data.get("usn") or "").strip().upper()
-    amount = data.get("amount")
-
-    if not usn or amount is None:
-        return jsonify({"status": "error", "message": "USN and amount required"}), 400
-
-    con = get_db()
-    cur = con.cursor()
-    cur.execute("SELECT * FROM students WHERE usn=%s", (usn,))
-    s = cur.fetchone()
-
-    if s is None:
-        con.close()
-        return jsonify({"status": "error", "message": "Student not found"}), 404
-
-    new_balance = s["balance"] + amount
-
-    cur.execute("UPDATE students SET balance=%s WHERE usn=%s", (new_balance, usn))
-    cur.execute("""
-        INSERT INTO transactions (uid, amount, status)
-        VALUES (%s, %s, %s)
-    """, (s["uid"], amount, "topup"))
-
-    con.commit()
-    con.close()
-
-    return jsonify({"status": "success", "new_balance": float(new_balance)})
-
-
-# ----------------------------------------------------------
-# BLOCK / UNBLOCK (ADMIN) — USN BASED
-# ----------------------------------------------------------
-@app.route("/api/block_card", methods=["POST"])
-def block_card():
-    usn = (request.json.get("usn") or "").strip().upper()
-
-    if not usn:
-        return jsonify({"status": "error", "message": "USN required"}), 400
-
-    con = get_db()
-    cur = con.cursor()
-    cur.execute("UPDATE students SET blocked=TRUE WHERE usn=%s", (usn,))
-    con.commit()
-    con.close()
-
-    return jsonify({"status": "success"})
-
-
-@app.route("/api/unblock_card", methods=["POST"])
-def unblock_card():
-    usn = (request.json.get("usn") or "").strip().upper()
-
-    if not usn:
-        return jsonify({"status": "error", "message": "USN required"}), 400
-
-    con = get_db()
-    cur = con.cursor()
-    cur.execute("UPDATE students SET blocked=FALSE WHERE usn=%s", (usn,))
-    con.commit()
-    con.close()
-
-    return jsonify({"status": "success"})
-
-
-# ----------------------------------------------------------
-# PHOTO UPLOAD — UID BASED
-# ----------------------------------------------------------
-@app.route("/api/upload_photo", methods=["POST"])
-def upload_photo():
-    uid = (request.form.get("uid") or "").strip().upper()
-    file = request.files.get("photo")
-
-    if not uid or not file:
-        return jsonify({"status": "error", "message": "UID and photo required"}), 400
-
-    if not allowed_file(file.filename):
-        return jsonify({"status": "error", "message": "Invalid file type"}), 400
-
-    filename = secure_filename(uid + ".jpg")
-    save_path = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(save_path)
-
-    con = get_db()
-    cur = con.cursor()
-    cur.execute("UPDATE students SET photo=%s WHERE uid=%s", (filename, uid))
-    con.commit()
-    con.close()
-
-    return jsonify({"status": "success", "filename": filename})
-# ----------------------------------------------------------
-# STUDENT INFO — USN BASED (FOR STUDENT DASHBOARD)
+# STUDENT DASHBOARD (USN)
 # ----------------------------------------------------------
 @app.route("/api/student/by_usn/<usn>")
-def student_info_by_usn(usn):
-    usn = usn.strip().upper()
+def student_by_usn(usn):
+    usn = usn.upper()
     con = get_db()
     cur = con.cursor()
 
     cur.execute("SELECT * FROM students WHERE usn=%s", (usn,))
     s = cur.fetchone()
 
-    if s is None:
-        con.close()
-        return jsonify({"status": "error", "message": "Student not found"}), 404
-
     cur.execute("""
-        SELECT amount, status, timestamp
-        FROM transactions
-        WHERE uid=%s
-        ORDER BY timestamp DESC
-        LIMIT 20
+        SELECT amount,status,timestamp
+        FROM transactions WHERE uid=%s
+        ORDER BY timestamp DESC LIMIT 20
     """, (s["uid"],))
     tx = cur.fetchall()
 
     con.close()
-    return jsonify({
-        "status": "success",
-        "student": s,
-        "transactions": tx
-    })
+    return jsonify({"status":"success","student":s,"transactions":tx})
 
+
+# ----------------------------------------------------------
+# RFID VERIFY (ESP32)
+# ----------------------------------------------------------
+@app.route("/verify")
+def verify():
+    uid = request.args.get("uid","").upper()
+    con = get_db()
+    cur = con.cursor()
+
+    cur.execute("SELECT name,balance,blocked FROM students WHERE uid=%s",(uid,))
+    s = cur.fetchone()
+    con.close()
+
+    if not s:
+        return jsonify({"ok":False}),404
+    if s["blocked"]:
+        return jsonify({"ok":False,"error":"blocked"}),403
+
+    return jsonify({"ok":True,"name":s["name"],"balance":float(s["balance"])})
+
+
+# ----------------------------------------------------------
+# RFID DEDUCT
+# ----------------------------------------------------------
+@app.route("/deduct", methods=["POST"])
+def deduct():
+    d = request.json or {}
+    uid = d.get("uid","").upper()
+    amt = d.get("amount")
+
+    con = get_db()
+    cur = con.cursor()
+    cur.execute("SELECT * FROM students WHERE uid=%s",(uid,))
+    s = cur.fetchone()
+
+    if not s or s["blocked"] or s["balance"] < amt:
+        if s:
+            cur.execute(
+                "INSERT INTO transactions(uid,amount,status) VALUES(%s,%s,%s)",
+                (uid, amt, "failed")
+            )
+            con.commit()
+            send_whatsapp(
+                s["phone"],
+                "TapFinity ❌\nTransaction failed\nInsufficient balance"
+            )
+        con.close()
+        return jsonify({"ok":False}),400
+
+    new_bal = s["balance"] - amt
+    cur.execute("UPDATE students SET balance=%s WHERE uid=%s",(new_bal,uid))
+    cur.execute(
+        "INSERT INTO transactions(uid,amount,status) VALUES(%s,%s,%s)",
+        (uid, amt, "success")
+    )
+    con.commit()
+    con.close()
+
+    send_whatsapp(
+        s["phone"],
+        f"TapFinity 💸\n₹{amt} spent\nBalance: ₹{new_bal}"
+    )
+
+    return jsonify({"ok":True,"balance":float(new_bal)})
+
+
+# ----------------------------------------------------------
+# ADD BALANCE (ADMIN)
+# ----------------------------------------------------------
+@app.route("/api/add_balance", methods=["POST"])
+def add_balance():
+    d = request.json or {}
+    usn = d.get("usn","").upper()
+    amt = d.get("amount")
+
+    con = get_db()
+    cur = con.cursor()
+    cur.execute("SELECT uid,phone,balance FROM students WHERE usn=%s",(usn,))
+    s = cur.fetchone()
+
+    new_bal = s["balance"] + amt
+    cur.execute("UPDATE students SET balance=%s WHERE usn=%s",(new_bal,usn))
+    cur.execute(
+        "INSERT INTO transactions(uid,amount,status) VALUES(%s,%s,%s)",
+        (s["uid"], amt, "topup")
+    )
+    con.commit()
+    con.close()
+
+    send_whatsapp(
+        s["phone"],
+        f"TapFinity 💰\n₹{amt} added\nNew balance: ₹{new_bal}"
+    )
+
+    return jsonify({"status":"success"})
+
+
+# ----------------------------------------------------------
+# BLOCK / UNBLOCK
+# ----------------------------------------------------------
+@app.route("/api/block_card", methods=["POST"])
+def block():
+    usn = request.json.get("usn","").upper()
+    con = get_db()
+    cur = con.cursor()
+    cur.execute("UPDATE students SET blocked=TRUE WHERE usn=%s",(usn,))
+    cur.execute("SELECT phone FROM students WHERE usn=%s",(usn,))
+    phone = cur.fetchone()["phone"]
+    con.commit()
+    con.close()
+
+    send_whatsapp(phone, "TapFinity 🚫\nYour card has been BLOCKED")
+
+    return jsonify({"status":"success"})
+
+
+@app.route("/api/unblock_card", methods=["POST"])
+def unblock():
+    usn = request.json.get("usn","").upper()
+    con = get_db()
+    cur = con.cursor()
+    cur.execute("UPDATE students SET blocked=FALSE WHERE usn=%s",(usn,))
+    cur.execute("SELECT phone FROM students WHERE usn=%s",(usn,))
+    phone = cur.fetchone()["phone"]
+    con.commit()
+    con.close()
+
+    send_whatsapp(phone, "TapFinity ✅\nYour card has been UNBLOCKED")
+
+    return jsonify({"status":"success"})
 
 
 # ----------------------------------------------------------
 # HTML ROUTES
 # ----------------------------------------------------------
 @app.route("/")
-def index():
-    return render_template("index.html")
+def index(): return render_template("index.html")
 
 @app.route("/student_login")
-def student_login_page():
-    return render_template("student_login.html")
+def student_login_page(): return render_template("student_login.html")
 
 @app.route("/student")
-def student_page():
-    return render_template("student.html")
-
-@app.route("/admin_login")
-def admin_login_page_html():
-    return render_template("admin_login.html")
+def student_page(): return render_template("student.html")
 
 @app.route("/admin")
-def admin_page():
-    return render_template("admin.html")
-
-@app.route("/kiosk")
-def kiosk_page():
-    return render_template("kiosk.html")
+def admin_page(): return render_template("admin.html")
 
 
 # ----------------------------------------------------------
 # RUN
 # ----------------------------------------------------------
 if __name__ == "__main__":
-    print("Flask app started successfully")
-    app.run(host="0.0.0.0", port=5001, debug=False)
+    app.run(host="0.0.0.0", port=5001)
