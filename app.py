@@ -1,9 +1,9 @@
 from flask import Flask, request, jsonify, render_template
-import sqlite3
-from werkzeug.utils import secure_filename
 import os
 from flask_cors import CORS
-import shutil
+from werkzeug.utils import secure_filename
+import psycopg2
+import psycopg2.extras
 
 app = Flask(__name__)
 CORS(app)
@@ -23,20 +23,18 @@ def allowed_file(filename):
 
 
 # ----------------------------------------------------------
-# DATABASE (SQLite for now)
+# DATABASE (PostgreSQL)
 # ----------------------------------------------------------
-LOCAL_DB = "database.db"
-RUNTIME_DB = "/tmp/database.db"
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-if not os.path.exists(RUNTIME_DB):
-    if os.path.exists(LOCAL_DB):
-        shutil.copy(LOCAL_DB, RUNTIME_DB)
-        print("Copied database.db to /tmp")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL environment variable not set")
 
 def get_db():
-    con = sqlite3.connect(RUNTIME_DB)
-    con.row_factory = sqlite3.Row
-    return con
+    return psycopg2.connect(
+        DATABASE_URL,
+        cursor_factory=psycopg2.extras.RealDictCursor
+    )
 
 
 # ----------------------------------------------------------
@@ -57,10 +55,10 @@ def add_student():
     usn = (data.get("usn") or "").strip().upper()
     uid = (data.get("uid") or "").strip().upper()
     name = data.get("name")
-    password = data.get("password")
+    password_hash = data.get("password_hash") or data.get("password")
     balance = data.get("balance", 0)
 
-    if not usn or not uid or not name or not password:
+    if not usn or not uid or not name or not password_hash:
         return jsonify({
             "status": "error",
             "message": "USN, UID, Name and Password required"
@@ -71,12 +69,12 @@ def add_student():
 
     try:
         cur.execute("""
-            INSERT INTO students (usn, uid, name, password, balance)
-            VALUES (?, ?, ?, ?, ?)
-        """, (usn, uid, name, password, balance))
+            INSERT INTO students (usn, uid, name, password_hash, balance)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (usn, uid, name, password_hash, balance))
         con.commit()
-
-    except sqlite3.IntegrityError:
+    except psycopg2.errors.UniqueViolation:
+        con.rollback()
         con.close()
         return jsonify({
             "status": "error",
@@ -95,9 +93,9 @@ def student_login_api():
     data = request.json or {}
 
     usn = (data.get("usn") or "").strip().upper()
-    password = data.get("password")
+    password_hash = data.get("password_hash") or data.get("password")
 
-    if not usn or not password:
+    if not usn or not password_hash:
         return jsonify({
             "status": "error",
             "message": "USN and password required"
@@ -105,14 +103,14 @@ def student_login_api():
 
     con = get_db()
     cur = con.cursor()
-    cur.execute("SELECT * FROM students WHERE usn=?", (usn,))
+    cur.execute("SELECT * FROM students WHERE usn=%s", (usn,))
     s = cur.fetchone()
 
     if s is None:
         con.close()
         return jsonify({"status": "error", "message": "Student not found"}), 404
 
-    if s["password"] != password:
+    if s["password_hash"] != password_hash:
         con.close()
         return jsonify({"status": "error", "message": "Incorrect password"}), 403
 
@@ -129,7 +127,7 @@ def student_info(uid):
     con = get_db()
     cur = con.cursor()
 
-    cur.execute("SELECT * FROM students WHERE uid=?", (uid,))
+    cur.execute("SELECT * FROM students WHERE uid=%s", (uid,))
     s = cur.fetchone()
 
     if s is None:
@@ -138,15 +136,15 @@ def student_info(uid):
 
     cur.execute("""
         SELECT * FROM transactions
-        WHERE uid=?
+        WHERE uid=%s
         ORDER BY id DESC LIMIT 5
     """, (uid,))
-    tx = [dict(t) for t in cur.fetchall()]
+    tx = cur.fetchall()
 
     con.close()
     return jsonify({
         "status": "success",
-        "student": dict(s),
+        "student": s,
         "transactions": tx
     })
 
@@ -160,14 +158,17 @@ def verify_card():
 
     con = get_db()
     cur = con.cursor()
-    cur.execute("SELECT name, balance, blocked FROM students WHERE uid=?", (uid,))
+    cur.execute(
+        "SELECT name, balance, blocked FROM students WHERE uid=%s",
+        (uid,)
+    )
     s = cur.fetchone()
 
     if s is None:
         con.close()
         return jsonify({"ok": False, "error": "User not found"}), 404
 
-    if s["blocked"] == 1:
+    if s["blocked"]:
         con.close()
         return jsonify({"ok": False, "error": "Card blocked"}), 403
 
@@ -175,7 +176,7 @@ def verify_card():
     return jsonify({
         "ok": True,
         "name": s["name"],
-        "balance": s["balance"]
+        "balance": float(s["balance"])
     })
 
 
@@ -193,21 +194,21 @@ def deduct_amount():
 
     con = get_db()
     cur = con.cursor()
-    cur.execute("SELECT * FROM students WHERE uid=?", (uid,))
+    cur.execute("SELECT * FROM students WHERE uid=%s", (uid,))
     s = cur.fetchone()
 
     if s is None:
         con.close()
         return jsonify({"ok": False, "error": "User not found"}), 404
 
-    if s["blocked"] == 1:
+    if s["blocked"]:
         con.close()
         return jsonify({"ok": False, "error": "Card blocked"}), 403
 
     if s["balance"] < amount:
         cur.execute("""
             INSERT INTO transactions (uid, amount, status)
-            VALUES (?, ?, ?)
+            VALUES (%s, %s, %s)
         """, (uid, amount, "failed_insufficient"))
         con.commit()
         con.close()
@@ -215,16 +216,16 @@ def deduct_amount():
 
     new_balance = s["balance"] - amount
 
-    cur.execute("UPDATE students SET balance=? WHERE uid=?", (new_balance, uid))
+    cur.execute("UPDATE students SET balance=%s WHERE uid=%s", (new_balance, uid))
     cur.execute("""
         INSERT INTO transactions (uid, amount, status)
-        VALUES (?, ?, ?)
+        VALUES (%s, %s, %s)
     """, (uid, amount, "success"))
 
     con.commit()
     con.close()
 
-    return jsonify({"ok": True, "balance": new_balance})
+    return jsonify({"ok": True, "balance": float(new_balance)})
 
 
 # ----------------------------------------------------------
@@ -238,38 +239,29 @@ def add_balance():
     amount = data.get("amount")
 
     if not usn or amount is None:
-        return jsonify({
-            "status": "error",
-            "message": "USN and amount required"
-        }), 400
+        return jsonify({"status": "error", "message": "USN and amount required"}), 400
 
     con = get_db()
     cur = con.cursor()
-    cur.execute("SELECT * FROM students WHERE usn=?", (usn,))
+    cur.execute("SELECT * FROM students WHERE usn=%s", (usn,))
     s = cur.fetchone()
 
     if s is None:
         con.close()
-        return jsonify({
-            "status": "error",
-            "message": "Student not found"
-        }), 404
+        return jsonify({"status": "error", "message": "Student not found"}), 404
 
     new_balance = s["balance"] + amount
 
-    cur.execute("UPDATE students SET balance=? WHERE usn=?", (new_balance, usn))
+    cur.execute("UPDATE students SET balance=%s WHERE usn=%s", (new_balance, usn))
     cur.execute("""
         INSERT INTO transactions (uid, amount, status)
-        VALUES (?, ?, ?)
+        VALUES (%s, %s, %s)
     """, (s["uid"], amount, "topup"))
 
     con.commit()
     con.close()
 
-    return jsonify({
-        "status": "success",
-        "new_balance": new_balance
-    })
+    return jsonify({"status": "success", "new_balance": float(new_balance)})
 
 
 # ----------------------------------------------------------
@@ -284,7 +276,7 @@ def block_card():
 
     con = get_db()
     cur = con.cursor()
-    cur.execute("UPDATE students SET blocked=1 WHERE usn=?", (usn,))
+    cur.execute("UPDATE students SET blocked=TRUE WHERE usn=%s", (usn,))
     con.commit()
     con.close()
 
@@ -300,7 +292,7 @@ def unblock_card():
 
     con = get_db()
     cur = con.cursor()
-    cur.execute("UPDATE students SET blocked=0 WHERE usn=?", (usn,))
+    cur.execute("UPDATE students SET blocked=FALSE WHERE usn=%s", (usn,))
     con.commit()
     con.close()
 
@@ -327,7 +319,7 @@ def upload_photo():
 
     con = get_db()
     cur = con.cursor()
-    cur.execute("UPDATE students SET photo=? WHERE uid=?", (filename, uid))
+    cur.execute("UPDATE students SET photo=%s WHERE uid=%s", (filename, uid))
     con.commit()
     con.close()
 
