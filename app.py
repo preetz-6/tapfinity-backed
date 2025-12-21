@@ -350,6 +350,54 @@ def unblock():
 
     return jsonify({"status":"success"})
 
+# ----------------------------------------------------------
+# ADMIN ANALYTICS
+# ----------------------------------------------------------
+@app.route("/api/admin/analytics")
+def admin_analytics():
+    con = get_db()
+    cur = con.cursor()
+
+    # Total transactions
+    cur.execute("SELECT COUNT(*) AS count FROM transactions")
+    total_tx = cur.fetchone()["count"]
+
+    # Total spent (successful deductions)
+    cur.execute("""
+        SELECT COALESCE(SUM(amount), 0) AS spent
+        FROM transactions
+        WHERE status = 'success'
+    """)
+    total_spent = cur.fetchone()["spent"]
+
+    # Total topups
+    cur.execute("""
+        SELECT COALESCE(SUM(amount), 0) AS topup
+        FROM transactions
+        WHERE status = 'topup'
+    """)
+    total_topups = cur.fetchone()["topup"]
+
+    # Blocked cards
+    cur.execute("SELECT COUNT(*) AS blocked FROM students WHERE blocked = TRUE")
+    blocked_cards = cur.fetchone()["blocked"]
+
+    # Active cards
+    cur.execute("SELECT COUNT(*) AS active FROM students WHERE blocked = FALSE")
+    active_cards = cur.fetchone()["active"]
+
+    con.close()
+
+    return jsonify({
+        "status": "success",
+        "metrics": {
+            "total_transactions": total_tx,
+            "total_spent": float(total_spent),
+            "total_topups": float(total_topups),
+            "blocked_cards": blocked_cards,
+            "active_cards": active_cards
+        }
+    })
 
 # ----------------------------------------------------------
 # HTML ROUTES
