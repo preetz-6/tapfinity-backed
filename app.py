@@ -178,20 +178,22 @@ def student_by_usn(usn):
     cur = con.cursor()
 
     cur.execute("""
-        SELECT uid, usn, name, balance, blocked
-        FROM students WHERE usn=%s
+        SELECT uid, usn, name, balance, blocked, COALESCE(photo,'') AS photo
+        FROM students
+        WHERE usn=%s
     """, (usn,))
     s = cur.fetchone()
 
     if not s:
         con.close()
-        return jsonify({"status":"error"}), 404
+        return jsonify({"status": "error", "message": "Student not found"}), 404
 
     cur.execute("""
         SELECT amount, status, timestamp
         FROM transactions
         WHERE uid=%s
         ORDER BY timestamp DESC
+        LIMIT 20
     """, (s["uid"],))
     tx = cur.fetchall()
 
@@ -205,11 +207,12 @@ def student_by_usn(usn):
     con.close()
 
     return jsonify({
+        "status": "success",
         "student": {
             "name": s["name"],
             "balance": float(s["balance"]),
             "blocked": s["blocked"],
-            "photo": None          # 👈 placeholder for now
+            "photo": s["photo"]   # ✅ real photo field
         },
         "total_spent": float(spent),
         "tx_count": len(tx),
