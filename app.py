@@ -457,27 +457,7 @@ def student_info_by_usn(usn):
         "transactions": tx
     })
 
-@app.route("/api/debug/set_password", methods=["POST"])
-def debug_set_password():
-    data = request.json or {}
-    usn = (data.get("usn") or "").strip().upper()
-    new_password = data.get("password")
 
-    if not usn or not new_password:
-        return jsonify({"error": "USN and password required"}), 400
-
-    password_hash = generate_password_hash(new_password)
-
-    con = get_db()
-    cur = con.cursor()
-    cur.execute(
-        "UPDATE students SET password_hash=%s WHERE usn=%s",
-        (password_hash, usn)
-    )
-    con.commit()
-    con.close()
-
-    return jsonify({"status": "password updated"})
 
 # ----------------------------------------------------------
 # HTML ROUTES
