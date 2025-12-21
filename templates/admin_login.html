@@ -1,133 +1,118 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Admin Login • Tap-Finity</title>
+    <title>Admin Login - TapFinity</title>
+
     <style>
         body {
             margin: 0;
-            background: #f2f2f7;
+            background: #eef1f7;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
         }
 
-        .card {
-            background: white;
-            width: 90%;
+        .container {
             max-width: 380px;
+            margin: auto;
+            margin-top: 120px;
+            background: white;
             padding: 30px;
-            border-radius: 20px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.12);
+            border-radius: 18px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+        }
+
+        h2 {
             text-align: center;
-        }
-
-        .title {
-            font-size: 28px;
-            font-weight: 700;
-            margin-bottom: 5px;
-            color: #111;
-        }
-
-        .subtitle {
-            font-size: 16px;
-            color: #777;
             margin-bottom: 25px;
+            color: #007aff;
         }
 
         input {
             width: 100%;
             padding: 12px;
+            margin-bottom: 14px;
             border-radius: 10px;
             border: 1px solid #ccc;
-            margin-bottom: 12px;
-            font-size: 15px;
+            font-size: 16px;
         }
 
         button {
             width: 100%;
             padding: 12px;
             background: #007aff;
-            border: none;
             color: white;
+            border: none;
+            border-radius: 12px;
             font-size: 16px;
-            border-radius: 10px;
+            font-weight: 600;
             cursor: pointer;
-            margin-top: 5px;
         }
 
-        button:hover { background: #005fcc; }
+        button:hover {
+            background: #005fcc;
+        }
+
+        .msg {
+            margin-top: 14px;
+            padding: 10px;
+            border-radius: 10px;
+            font-size: 14px;
+            display: none;
+        }
 
         .error {
-            display: none;
-            background: #ffe5e7;
-            color: #b00020;
-            padding: 12px;
-            border-radius: 10px;
-            font-weight: 600;
-            margin-bottom: 15px;
-        }
-
-        .logo {
-            font-size: 40px;
-            margin-bottom: 10px;
+            background: #ffe9ea;
+            color: #c7162b;
         }
     </style>
 </head>
 
 <body>
-<div class="card">
 
-    <div class="logo">🔒</div>
-    <div class="title">Admin Login</div>
-    <div class="subtitle">Tap-Finity Management Portal</div>
+<div class="container">
+    <h2>Admin Login</h2>
 
-    <div id="error" class="error"></div>
-
-    <input id="username" placeholder="Username">
+    <input id="username" placeholder="Admin Username">
     <input id="password" type="password" placeholder="Password">
 
-    <button onclick="login()">Login</button>
+    <button onclick="loginAdmin()">Login</button>
 
+    <div id="error_box" class="msg error"></div>
 </div>
 
 <script>
 const BASE = "https://tapfinity-backed.onrender.com";
 
 function showError(msg) {
-    const e = document.getElementById("error");
-    e.textContent = msg;
+    const e = document.getElementById("error_box");
     e.style.display = "block";
-    setTimeout(() => e.style.display = "none", 3000);
+    e.textContent = msg;
 }
 
-function login() {
-    fetch(BASE + "/api/admin_login", {
+function loginAdmin() {
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value;
+
+    if (!username || !password) {
+        showError("Enter username and password");
+        return;
+    }
+
+    fetch(`${BASE}/api/admin/login`, {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-            username: document.getElementById("username").value,
-            password: document.getElementById("password").value
-        })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
     })
-    .then(r => {
-        if (!r.ok) throw new Error("Network");
-        return r.json();
-    })
+    .then(r => r.json())
     .then(d => {
         if (d.status === "success") {
             window.location.href = "/admin";
         } else {
-            showError(d.message);
+            showError(d.message || "Login failed");
         }
     })
-    .catch(() => {
-        showError("Network error");
-    });
+    .catch(() => showError("Network error"));
 }
 </script>
-
 
 </body>
 </html>
