@@ -299,7 +299,9 @@ function loadStudent() {
 
             document.getElementById("student_name").textContent = s.name;
             document.getElementById("balance_value").textContent = "₹" + s.balance;
-            document.getElementById("card_status").textContent = s.blocked ? "BLOCKED" : "ACTIVE";
+            document.getElementById("card_status").textContent =
+    s.blocked === true ? "BLOCKED" : "ACTIVE";
+
 
             document.getElementById("profile_photo").src =
                 s.photo ? `${BASE}/static/photos/${s.photo}` :
