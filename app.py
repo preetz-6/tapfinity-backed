@@ -35,6 +35,8 @@ def get_db():
         DATABASE_URL,
         cursor_factory=psycopg2.extras.RealDictCursor
     )
+# Initialize DB on startup (Render-safe)
+init_db()
 
 def init_db():
     con = get_db()
