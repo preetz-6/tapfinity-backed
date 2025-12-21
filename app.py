@@ -166,6 +166,58 @@ def student_login_api():
     con.close()
     return jsonify({"status": "success"})
 
+# ----------------------------------------------------------
+# CHANGE PASSWORD (STUDENT) — USN BASED
+# ----------------------------------------------------------
+@app.route("/api/student/change_password", methods=["POST"])
+def change_password():
+    data = request.json or {}
+
+    usn = (data.get("usn") or "").strip().upper()
+    old_password = data.get("old_password")
+    new_password = data.get("new_password")
+
+    if not usn or not old_password or not new_password:
+        return jsonify({
+            "status": "error",
+            "message": "All fields are required"
+        }), 400
+
+    con = get_db()
+    cur = con.cursor()
+
+    cur.execute("SELECT password_hash FROM students WHERE usn=%s", (usn,))
+    s = cur.fetchone()
+
+    if s is None:
+        con.close()
+        return jsonify({
+            "status": "error",
+            "message": "Student not found"
+        }), 404
+
+    if not check_password_hash(s["password_hash"], old_password):
+        con.close()
+        return jsonify({
+            "status": "error",
+            "message": "Old password is incorrect"
+        }), 403
+
+    new_hash = generate_password_hash(new_password)
+
+    cur.execute(
+        "UPDATE students SET password_hash=%s WHERE usn=%s",
+        (new_hash, usn)
+    )
+
+    con.commit()
+    con.close()
+
+    return jsonify({
+        "status": "success",
+        "message": "Password updated successfully"
+    })
+
 
 # ----------------------------------------------------------
 # STUDENT INFO (ADMIN / INTERNAL) — UID BASED
