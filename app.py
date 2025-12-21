@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, render_template
 import os
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
 import psycopg2
 import psycopg2.extras
 
@@ -35,9 +36,11 @@ def get_db():
         DATABASE_URL,
         cursor_factory=psycopg2.extras.RealDictCursor
     )
-# Initialize DB on startup (Render-safe)
-init_db()
 
+
+# ----------------------------------------------------------
+# INITIALIZE DB (Render free-tier safe)
+# ----------------------------------------------------------
 def init_db():
     con = get_db()
     cur = con.cursor()
@@ -76,6 +79,9 @@ def init_db():
     con.commit()
     con.close()
 
+# Call AFTER definition
+init_db()
+
 
 # ----------------------------------------------------------
 # HEALTH CHECK
@@ -95,14 +101,16 @@ def add_student():
     usn = (data.get("usn") or "").strip().upper()
     uid = (data.get("uid") or "").strip().upper()
     name = data.get("name")
-    password_hash = data.get("password_hash") or data.get("password")
+    password = data.get("password")
     balance = data.get("balance", 0)
 
-    if not usn or not uid or not name or not password_hash:
+    if not usn or not uid or not name or not password:
         return jsonify({
             "status": "error",
             "message": "USN, UID, Name and Password required"
         }), 400
+
+    password_hash = generate_password_hash(password)
 
     con = get_db()
     cur = con.cursor()
@@ -113,6 +121,7 @@ def add_student():
             VALUES (%s, %s, %s, %s, %s)
         """, (usn, uid, name, password_hash, balance))
         con.commit()
+
     except psycopg2.errors.UniqueViolation:
         con.rollback()
         con.close()
@@ -133,9 +142,9 @@ def student_login_api():
     data = request.json or {}
 
     usn = (data.get("usn") or "").strip().upper()
-    password_hash = data.get("password_hash") or data.get("password")
+    password = data.get("password")
 
-    if not usn or not password_hash:
+    if not usn or not password:
         return jsonify({
             "status": "error",
             "message": "USN and password required"
@@ -150,7 +159,7 @@ def student_login_api():
         con.close()
         return jsonify({"status": "error", "message": "Student not found"}), 404
 
-    if s["password_hash"] != password_hash:
+    if not check_password_hash(s["password_hash"], password):
         con.close()
         return jsonify({"status": "error", "message": "Incorrect password"}), 403
 
