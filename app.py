@@ -317,25 +317,44 @@ def deduct():
 @app.route("/api/add_balance", methods=["POST"])
 def add_balance():
     d = request.json or {}
-    usn = d.get("usn","").upper()
-    amt = float(d.get("amount",0))
+    usn = d.get("usn", "").upper()
+    amt = float(d.get("amount", 0))
 
     con = get_db()
     cur = con.cursor()
-    cur.execute("SELECT uid,balance,phone FROM students WHERE usn=%s",(usn,))
+
+    cur.execute(
+        "SELECT uid, balance, phone FROM students WHERE usn=%s",
+        (usn,)
+    )
     s = cur.fetchone()
 
-    new_bal = s["balance"] + amt
-    cur.execute("UPDATE students SET balance=%s WHERE usn=%s",(new_bal,usn))
+    if not s:
+        con.close()
+        return jsonify({"status": "error", "message": "Student not found"}), 404
+
+    balance = float(s["balance"])     # ✅ FIX
+    new_bal = balance + amt            # ✅ FIX
+
     cur.execute(
-        "INSERT INTO transactions(uid,amount,status) VALUES(%s,%s,'topup')",
-        (s["uid"],amt)
+        "UPDATE students SET balance=%s WHERE usn=%s",
+        (new_bal, usn)
     )
+    cur.execute(
+        "INSERT INTO transactions(uid, amount, status) VALUES(%s, %s, 'topup')",
+        (s["uid"], amt)
+    )
+
     con.commit()
     con.close()
 
-    send_whatsapp(s["phone"],f"TapFinity 💰\n₹{amt} added\nBalance: ₹{new_bal}")
-    return jsonify({"status":"success"})
+    send_whatsapp(
+        s["phone"],
+        f"TapFinity 💰\n₹{amt} added\nNew balance: ₹{new_bal}"
+    )
+
+    return jsonify({"status": "success", "balance": new_bal})
+
 
 # ----------------------------------------------------------
 # BLOCK / UNBLOCK
