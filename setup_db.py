@@ -4,14 +4,16 @@ import sqlite3
 con = sqlite3.connect("database.db")
 cur = con.cursor()
 
-# Students table (with pin)
+# Students table
 cur.execute("""
 CREATE TABLE IF NOT EXISTS students (
-    uid TEXT PRIMARY KEY,
-    name TEXT,
+    uid TEXT UNIQUE NOT NULL,        -- RFID UID
+    usn TEXT UNIQUE NOT NULL,        -- Student login ID
+    name TEXT NOT NULL,
+    password TEXT NOT NULL,          -- plain for now
     balance REAL DEFAULT 0,
     blocked INTEGER DEFAULT 0,
-    pin TEXT,
+    photo TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 )
 """)
@@ -27,7 +29,7 @@ CREATE TABLE IF NOT EXISTS transactions (
 )
 """)
 
-# Admin table
+# Admin table (unchanged for now)
 cur.execute("""
 CREATE TABLE IF NOT EXISTS admins (
     username TEXT PRIMARY KEY,
@@ -36,8 +38,8 @@ CREATE TABLE IF NOT EXISTS admins (
 )
 """)
 
-
 con.commit()
 con.close()
 
 print("Database setup complete!")
+
