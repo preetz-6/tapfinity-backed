@@ -2,120 +2,144 @@
 <html>
 <head>
     <title>Student Login - TapFinity</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <style>
         body {
             margin: 0;
-            background: #f2f2f7;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0f0f12;
+            font-family: "Segoe UI", Roboto, sans-serif;
+            color: #eaeaea;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
         }
 
         .container {
-            max-width: 400px;
-            margin: auto;
-            padding: 25px;
-            margin-top: 60px;
-            background: white;
-            border-radius: 22px;
-            box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+            width: 420px;
+            padding: 35px;
+            background: #1a1a25;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
 
         h2 {
             text-align: center;
-            margin-bottom: 25px;
-            color: #222;
+            margin-bottom: 30px;
             font-size: 28px;
         }
 
         input {
             width: 100%;
-            padding: 12px;
-            margin-bottom: 12px;
+            padding: 14px;
+            margin-bottom: 16px;
             border-radius: 12px;
-            border: 1px solid #ccc;
+            border: none;
+            outline: none;
+            background: #2a2a38;
+            color: #fff;
             font-size: 16px;
+        }
+
+        input::placeholder {
+            color: #aaa;
         }
 
         button {
             width: 100%;
-            padding: 12px;
-            background: #007aff;
-            color: white;
+            padding: 14px;
+            background: #3ddc97;
+            color: #0f0f12;
             border: none;
             border-radius: 12px;
             font-size: 18px;
+            font-weight: 600;
             cursor: pointer;
             margin-top: 10px;
         }
 
         button:hover {
-            background: #005fcc;
+            background: #2fc489;
         }
 
         .msg {
-            margin-top: 10px;
-            font-size: 15px;
-            padding: 10px;
+            margin-top: 15px;
+            font-size: 14px;
+            padding: 12px;
             border-radius: 10px;
             display: none;
         }
 
         .error {
-            background: #ffe6e6;
-            color: #b00020;
+            background: #2a1c1c;
+            color: #ff6b6b;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 25px;
+            font-size: 13px;
+            color: #aaa;
         }
     </style>
 </head>
+
 <body>
 
 <div class="container">
     <h2>Student Login</h2>
 
-    <input id="uid" type="text" placeholder="Enter UID">
-    <input id="pin" type="password" placeholder="Enter PIN">
+    <input id="usn" type="text" placeholder="Enter USN (e.g. 1BG24CS001)">
+    <input id="password" type="password" placeholder="Enter Password">
 
     <button onclick="loginStudent()">Login</button>
 
     <div id="error_box" class="msg error"></div>
+
+    <div class="footer">
+        TapFinity • Secure Campus Payments
+    </div>
 </div>
 
 <script>
-// 🔥 IMPORTANT — Render backend URL
 const BASE = "https://tapfinity-backed.onrender.com";
 
 function showError(msg) {
-    let e = document.getElementById("error_box");
-    e.style.display = "block";
-    e.textContent = msg;
+    const box = document.getElementById("error_box");
+    box.style.display = "block";
+    box.textContent = msg;
 }
 
 function loginStudent() {
-    let uid = document.getElementById("uid").value.trim().toUpperCase();
-    let pin = document.getElementById("pin").value.trim();
+    const usn = document.getElementById("usn").value.trim().toUpperCase();
+    const password = document.getElementById("password").value;
 
-    if (!uid || !pin) {
-        showError("Please enter UID and PIN");
+    if (!usn || !password) {
+        showError("Please enter USN and password");
         return;
     }
 
-    fetch(BASE + "/api/login", {
+    fetch(`${BASE}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uid, pin })
+        body: JSON.stringify({ usn, password })
     })
-    .then(r => r.json())
-    .then(d => {
-        if (d.status === "success") {
-            window.location.href = "/student?uid=" + uid;
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === "success") {
+            // TEMP: redirect with USN (later we’ll move to sessions)
+            window.location.href = `/student?usn=${usn}`;
         } else {
-            showError(d.message);
+            showError(data.message || "Login failed");
         }
     })
-    .catch(err => {
-        showError("Network error");
-        console.log(err);
+    .catch(() => {
+        showError("Network error. Try again.");
     });
 }
 </script>
 
 </body>
 </html>
+
