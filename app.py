@@ -6,6 +6,7 @@ import psycopg2
 import psycopg2.extras
 from twilio.rest import Client
 from functools import wraps
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 CORS(app)
@@ -16,21 +17,9 @@ CORS(app)
 app.secret_key = os.getenv("SECRET_KEY", "tapfinity-dev-secret")
 
 # ----------------------------------------------------------
-# FILE UPLOAD SETTINGS
-# ----------------------------------------------------------
-UPLOAD_FOLDER = "static/photos"
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
-
-# ----------------------------------------------------------
-# DATABASE (PostgreSQL)
+# DATABASE
 # ----------------------------------------------------------
 DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL not set")
-
 def get_db():
     return psycopg2.connect(
         DATABASE_URL,
@@ -38,26 +27,7 @@ def get_db():
     )
 
 # ----------------------------------------------------------
-# 🔐 SESSION GUARDS
-# ----------------------------------------------------------
-def admin_required(f):
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        if "admin" not in session:
-            return jsonify({"status": "unauthorized"}), 401
-        return f(*args, **kwargs)
-    return wrapper
-
-def student_required(f):
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        if "student" not in session:
-            return jsonify({"status": "unauthorized"}), 401
-        return f(*args, **kwargs)
-    return wrapper
-
-# ----------------------------------------------------------
-# TWILIO (WhatsApp)
+# TWILIO
 # ----------------------------------------------------------
 TWILIO_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
@@ -65,17 +35,36 @@ TWILIO_FROM = os.getenv("TWILIO_WHATSAPP_FROM")
 
 twilio_client = Client(TWILIO_SID, TWILIO_TOKEN) if TWILIO_SID else None
 
-def send_whatsapp(phone, message):
+def send_whatsapp(phone, msg):
     if not phone or not twilio_client:
         return
     try:
         twilio_client.messages.create(
             from_=TWILIO_FROM,
             to=f"whatsapp:{phone}",
-            body=message
+            body=msg
         )
     except Exception as e:
         print("WhatsApp error:", e)
+
+# ----------------------------------------------------------
+# SESSION GUARDS
+# ----------------------------------------------------------
+def admin_required(f):
+    @wraps(f)
+    def wrapper(*a, **k):
+        if "admin" not in session:
+            return jsonify({"status": "unauthorized"}), 401
+        return f(*a, **k)
+    return wrapper
+
+def student_required(f):
+    @wraps(f)
+    def wrapper(*a, **k):
+        if "student" not in session:
+            return jsonify({"status": "unauthorized"}), 401
+        return f(*a, **k)
+    return wrapper
 
 # ----------------------------------------------------------
 # INIT DB
@@ -85,35 +74,30 @@ def init_db():
     cur = con.cursor()
 
     cur.execute("""
-    CREATE TABLE IF NOT EXISTS students (
-        uid TEXT UNIQUE NOT NULL,
-        usn TEXT UNIQUE NOT NULL,
-        name TEXT NOT NULL,
+    CREATE TABLE IF NOT EXISTS students(
+        uid TEXT UNIQUE,
+        usn TEXT UNIQUE,
+        name TEXT,
         phone TEXT,
-        password_hash TEXT NOT NULL,
+        password_hash TEXT,
         balance NUMERIC DEFAULT 0,
-        blocked BOOLEAN DEFAULT FALSE,
-        photo TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-    """)
+        blocked BOOLEAN DEFAULT FALSE
+    )""")
 
     cur.execute("""
-    CREATE TABLE IF NOT EXISTS transactions (
+    CREATE TABLE IF NOT EXISTS transactions(
         id SERIAL PRIMARY KEY,
         uid TEXT,
         amount NUMERIC,
         status TEXT,
         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-    """)
+    )""")
 
     cur.execute("""
-    CREATE TABLE IF NOT EXISTS admins (
-        username TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL
-    )
-    """)
+    CREATE TABLE IF NOT EXISTS admins(
+        username TEXT UNIQUE,
+        password_hash TEXT
+    )""")
 
     con.commit()
     con.close()
@@ -125,42 +109,38 @@ init_db()
 # ----------------------------------------------------------
 @app.route("/api/health")
 def health():
-    return jsonify({"status": "ok"})
+    return jsonify({"ok": True})
 
 # ----------------------------------------------------------
-# ADMIN LOGIN + SESSION
+# ADMIN AUTH
 # ----------------------------------------------------------
 @app.route("/api/admin/login", methods=["POST"])
 def admin_login():
-    data = request.json or {}
-    username = data.get("username")
-    password = data.get("password")
-
+    d = request.json
     con = get_db()
     cur = con.cursor()
-    cur.execute("SELECT password_hash FROM admins WHERE username=%s", (username,))
-    admin = cur.fetchone()
+    cur.execute("SELECT password_hash FROM admins WHERE username=%s", (d["username"],))
+    a = cur.fetchone()
     con.close()
 
-    if not admin or not check_password_hash(admin["password_hash"], password):
+    if not a or not check_password_hash(a["password_hash"], d["password"]):
         return jsonify({"status": "error"}), 403
 
-    session["admin"] = username
+    session["admin"] = d["username"]
     return jsonify({"status": "success"})
 
 @app.route("/api/admin/logout", methods=["POST"])
 def admin_logout():
-    session.pop("admin", None)
+    session.clear()
     return jsonify({"status": "success"})
 
 # ----------------------------------------------------------
-# STUDENT LOGIN + SESSION
+# STUDENT AUTH
 # ----------------------------------------------------------
 @app.route("/api/login", methods=["POST"])
 def student_login():
-    d = request.json or {}
-    usn = d.get("usn","").upper()
-    password = d.get("password")
+    d = request.json
+    usn = d["usn"].upper()
 
     con = get_db()
     cur = con.cursor()
@@ -168,43 +148,148 @@ def student_login():
     s = cur.fetchone()
     con.close()
 
-    if not s or not check_password_hash(s["password_hash"], password):
-        return jsonify({"status":"error"}), 403
+    if not s or not check_password_hash(s["password_hash"], d["password"]):
+        return jsonify({"status": "error"}), 403
 
     session["student"] = usn
-    return jsonify({"status":"success"})
+    return jsonify({"status": "success"})
 
 @app.route("/api/student/logout", methods=["POST"])
 def student_logout():
-    session.pop("student", None)
-    return jsonify({"status":"success"})
+    session.clear()
+    return jsonify({"status": "success"})
 
 # ----------------------------------------------------------
-# STUDENT DASHBOARD
+# ADMIN ACTIONS
 # ----------------------------------------------------------
-@app.route("/api/student/by_usn/<usn>")
-@student_required
-def student_by_usn(usn):
-    usn = usn.upper()
+@app.route("/api/add_student", methods=["POST"])
+@admin_required
+def add_student():
+    d = request.json
     con = get_db()
     cur = con.cursor()
 
-    cur.execute("SELECT * FROM students WHERE usn=%s", (usn,))
-    s = cur.fetchone()
-
     cur.execute("""
-        SELECT amount,status,timestamp
-        FROM transactions WHERE uid=%s
-        ORDER BY timestamp DESC LIMIT 20
-    """, (s["uid"],))
+        INSERT INTO students(usn,uid,name,phone,password_hash,balance)
+        VALUES(%s,%s,%s,%s,%s,%s)
+    """, (
+        d["usn"].upper(),
+        d["uid"].upper(),
+        d["name"],
+        d["phone"],
+        generate_password_hash(d["password"]),
+        d.get("balance",0)
+    ))
 
-    tx = cur.fetchall()
+    con.commit()
     con.close()
 
-    return jsonify({"student": s, "transactions": tx})
+    send_whatsapp(d["phone"], f"TapFinity ✅ Account created\nUSN: {d['usn']}")
+    return jsonify({"status": "success"})
+
+@app.route("/api/add_balance", methods=["POST"])
+@admin_required
+def add_balance():
+    d = request.json
+    con = get_db()
+    cur = con.cursor()
+
+    cur.execute("SELECT uid,phone,balance FROM students WHERE usn=%s",(d["usn"].upper(),))
+    s = cur.fetchone()
+
+    new_bal = s["balance"] + d["amount"]
+    cur.execute("UPDATE students SET balance=%s WHERE usn=%s",(new_bal,d["usn"].upper()))
+    cur.execute("INSERT INTO transactions(uid,amount,status) VALUES(%s,%s,'topup')",(s["uid"],d["amount"]))
+
+    con.commit()
+    con.close()
+
+    send_whatsapp(s["phone"], f"₹{d['amount']} added\nBalance ₹{new_bal}")
+    return jsonify({"status": "success"})
+
+@app.route("/api/block_card", methods=["POST"])
+@admin_required
+def block_card():
+    usn = request.json["usn"].upper()
+    con = get_db()
+    cur = con.cursor()
+
+    cur.execute("UPDATE students SET blocked=TRUE WHERE usn=%s",(usn,))
+    cur.execute("SELECT phone FROM students WHERE usn=%s",(usn,))
+    phone = cur.fetchone()["phone"]
+
+    con.commit()
+    con.close()
+
+    send_whatsapp(phone,"🚫 Card BLOCKED")
+    return jsonify({"status":"success"})
+
+@app.route("/api/unblock_card", methods=["POST"])
+@admin_required
+def unblock_card():
+    usn = request.json["usn"].upper()
+    con = get_db()
+    cur = con.cursor()
+
+    cur.execute("UPDATE students SET blocked=FALSE WHERE usn=%s",(usn,))
+    cur.execute("SELECT phone FROM students WHERE usn=%s",(usn,))
+    phone = cur.fetchone()["phone"]
+
+    con.commit()
+    con.close()
+
+    send_whatsapp(phone,"✅ Card UNBLOCKED")
+    return jsonify({"status":"success"})
 
 # ----------------------------------------------------------
-# ADMIN ANALYTICS (PROTECTED)
+# RFID VERIFY + DEDUCT (ANTI-SPAM)
+# ----------------------------------------------------------
+last_tx = {}
+
+@app.route("/verify")
+def verify():
+    uid = request.args.get("uid","").upper()
+    con = get_db()
+    cur = con.cursor()
+    cur.execute("SELECT name,balance,blocked FROM students WHERE uid=%s",(uid,))
+    s = cur.fetchone()
+    con.close()
+
+    if not s or s["blocked"]:
+        return jsonify({"ok":False}),403
+
+    return jsonify({"ok":True,"name":s["name"],"balance":float(s["balance"])})
+
+@app.route("/deduct", methods=["POST"])
+def deduct():
+    d = request.json
+    uid = d["uid"].upper()
+    amt = d["amount"]
+
+    # Anti-repeat (5 sec)
+    if uid in last_tx and datetime.now() - last_tx[uid] < timedelta(seconds=5):
+        return jsonify({"ok":False})
+
+    con = get_db()
+    cur = con.cursor()
+    cur.execute("SELECT * FROM students WHERE uid=%s",(uid,))
+    s = cur.fetchone()
+
+    if not s or s["blocked"] or s["balance"] < amt:
+        return jsonify({"ok":False})
+
+    new_bal = s["balance"] - amt
+    cur.execute("UPDATE students SET balance=%s WHERE uid=%s",(new_bal,uid))
+    cur.execute("INSERT INTO transactions(uid,amount,status) VALUES(%s,%s,'success')",(uid,amt))
+    con.commit()
+    con.close()
+
+    last_tx[uid] = datetime.now()
+    send_whatsapp(s["phone"], f"₹{amt} spent\nBalance ₹{new_bal}")
+    return jsonify({"ok":True,"balance":float(new_bal)})
+
+# ----------------------------------------------------------
+# ANALYTICS
 # ----------------------------------------------------------
 @app.route("/api/admin/analytics")
 @admin_required
@@ -212,58 +297,48 @@ def admin_analytics():
     con = get_db()
     cur = con.cursor()
 
-    cur.execute("SELECT COUNT(*) AS total FROM students")
-    total_students = cur.fetchone()["total"]
+    cur.execute("SELECT COUNT(*) c FROM students")
+    students = cur.fetchone()["c"]
 
-    cur.execute("SELECT COUNT(*) AS blocked FROM students WHERE blocked=TRUE")
-    blocked_students = cur.fetchone()["blocked"]
+    cur.execute("SELECT COALESCE(SUM(balance),0) s FROM students")
+    bal = cur.fetchone()["s"]
 
-    cur.execute("SELECT COALESCE(SUM(balance),0) AS balance FROM students")
-    total_balance = cur.fetchone()["balance"]
-
-    cur.execute("SELECT COUNT(*) AS tx FROM transactions")
-    total_tx = cur.fetchone()["tx"]
-
-    cur.execute("""
-        SELECT COALESCE(SUM(amount),0) AS spent
-        FROM transactions WHERE status='success'
-    """)
-    total_spent = cur.fetchone()["spent"]
+    cur.execute("SELECT COUNT(*) c FROM transactions")
+    tx = cur.fetchone()["c"]
 
     con.close()
-
     return jsonify({
-        "total_students": total_students,
-        "blocked_students": blocked_students,
-        "total_balance": float(total_balance),
-        "total_transactions": total_tx,
-        "total_spent": float(total_spent)
+        "total_students": students,
+        "total_balance": float(bal),
+        "transactions": tx
     })
 
-# ----------------------------------------------------------
-# ADMIN TRANSACTIONS (PROTECTED)
-# ----------------------------------------------------------
 @app.route("/api/admin/transactions")
 @admin_required
 def admin_transactions():
     con = get_db()
     cur = con.cursor()
-
     cur.execute("""
         SELECT t.amount,t.status,t.timestamp,s.name,s.usn
-        FROM transactions t
-        JOIN students s ON s.uid=t.uid
+        FROM transactions t JOIN students s ON s.uid=t.uid
         ORDER BY t.timestamp DESC LIMIT 50
     """)
-
     rows = cur.fetchall()
     con.close()
-
     return jsonify(rows)
 
 # ----------------------------------------------------------
-# HTML ROUTES (SESSION PROTECTED)
+# HTML ROUTES
 # ----------------------------------------------------------
+@app.route("/")
+def index(): return render_template("index.html")
+
+@app.route("/admin_login")
+def admin_login_page(): return render_template("admin_login.html")
+
+@app.route("/student_login")
+def student_login_page(): return render_template("student_login.html")
+
 @app.route("/admin")
 def admin_page():
     if "admin" not in session:
@@ -275,18 +350,6 @@ def student_page():
     if "student" not in session:
         return redirect("/student_login")
     return render_template("student.html")
-
-@app.route("/admin_login")
-def admin_login_page():
-    return render_template("admin_login.html")
-
-@app.route("/student_login")
-def student_login_page():
-    return render_template("student_login.html")
-
-@app.route("/")
-def index():
-    return render_template("index.html")
 
 # ----------------------------------------------------------
 # RUN
