@@ -1,16 +1,14 @@
 import sqlite3
 
-# Create / connect to database
 con = sqlite3.connect("database.db")
 cur = con.cursor()
 
-# Students table
 cur.execute("""
 CREATE TABLE IF NOT EXISTS students (
-    uid TEXT UNIQUE NOT NULL,        -- RFID UID
-    usn TEXT UNIQUE NOT NULL,        -- Student login ID
+    uid TEXT UNIQUE NOT NULL,
+    usn TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL,
-    password TEXT NOT NULL,          -- plain for now
+    password_hash TEXT NOT NULL,
     balance REAL DEFAULT 0,
     blocked INTEGER DEFAULT 0,
     photo TEXT,
@@ -18,7 +16,6 @@ CREATE TABLE IF NOT EXISTS students (
 )
 """)
 
-# Transactions table
 cur.execute("""
 CREATE TABLE IF NOT EXISTS transactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,17 +26,16 @@ CREATE TABLE IF NOT EXISTS transactions (
 )
 """)
 
-# Admin table (unchanged for now)
 cur.execute("""
 CREATE TABLE IF NOT EXISTS admins (
     username TEXT PRIMARY KEY,
-    password TEXT,
+    password_hash TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 )
 """)
 
 con.commit()
 con.close()
-
 print("Database setup complete!")
+
 
