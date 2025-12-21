@@ -275,34 +275,41 @@ def verify():
 def deduct():
     d = request.json or {}
     uid = d.get("uid","").upper()
-    amt = float(d.get("amount",0))
+    amt = float(d.get("amount", 0))
 
     con = get_db()
     cur = con.cursor()
-    cur.execute("SELECT balance,blocked,phone FROM students WHERE uid=%s",(uid,))
+    cur.execute("SELECT balance, blocked, phone FROM students WHERE uid=%s", (uid,))
     s = cur.fetchone()
 
-    if not s or s["blocked"] or s["balance"] < amt:
+    if not s or s["blocked"] or float(s["balance"]) < amt:
         if s:
             cur.execute(
-                "INSERT INTO transactions(uid,amount,status) VALUES(%s,%s,'failed')",
-                (uid,amt)
+                "INSERT INTO transactions(uid, amount, status) VALUES(%s, %s, 'failed')",
+                (uid, amt)
             )
             con.commit()
         con.close()
-        return jsonify({"ok":False}),400
+        return jsonify({"ok": False}), 400
 
-    new_bal = s["balance"] - amt
-    cur.execute("UPDATE students SET balance=%s WHERE uid=%s",(new_bal,uid))
+    balance = float(s["balance"])   # ✅ FIX
+    new_bal = balance - amt          # ✅ FIX
+
+    cur.execute("UPDATE students SET balance=%s WHERE uid=%s", (new_bal, uid))
     cur.execute(
-        "INSERT INTO transactions(uid,amount,status) VALUES(%s,%s,'success')",
-        (uid,amt)
+        "INSERT INTO transactions(uid, amount, status) VALUES(%s, %s, 'success')",
+        (uid, amt)
     )
+
     con.commit()
     con.close()
 
-    send_whatsapp(s["phone"],f"TapFinity 💸\n₹{amt} spent\nBalance: ₹{new_bal}")
-    return jsonify({"ok":True,"balance":float(new_bal)})
+    send_whatsapp(
+        s["phone"],
+        f"TapFinity 💸\n₹{amt} spent\nBalance: ₹{new_bal}"
+    )
+
+    return jsonify({"ok": True, "balance": new_bal})
 
 # ----------------------------------------------------------
 # ADD BALANCE (ADMIN)
