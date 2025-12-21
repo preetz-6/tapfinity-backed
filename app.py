@@ -178,16 +178,17 @@ def student_by_usn(usn):
     cur = con.cursor()
 
     cur.execute("""
-        SELECT usn, uid, name, balance, blocked
+        SELECT uid, usn, name, balance, blocked
         FROM students WHERE usn=%s
     """, (usn,))
     s = cur.fetchone()
+
     if not s:
         con.close()
         return jsonify({"status":"error"}), 404
 
     cur.execute("""
-        SELECT amount,status,timestamp
+        SELECT amount, status, timestamp
         FROM transactions
         WHERE uid=%s
         ORDER BY timestamp DESC
@@ -204,17 +205,14 @@ def student_by_usn(usn):
     con.close()
 
     return jsonify({
-        "status":"success",
-        "student":{
-            "usn": s["usn"],
+        "student": {
             "name": s["name"],
             "balance": float(s["balance"]),
-            "card_status": "BLOCKED" if s["blocked"] else "ACTIVE"
+            "blocked": s["blocked"],
+            "photo": None          # 👈 placeholder for now
         },
-        "stats":{
-            "total_spent": float(spent),
-            "transactions": len(tx)
-        },
+        "total_spent": float(spent),
+        "tx_count": len(tx),
         "transactions": tx
     })
 
