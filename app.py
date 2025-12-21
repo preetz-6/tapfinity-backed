@@ -385,78 +385,44 @@ def unblock():
 # ----------------------------------------------------------
 # ADMIN ANALYTICS
 # ----------------------------------------------------------
-@app.route("/api/admin/analytics")
-def admin_analytics():
-    con = get_db()
-    cur = con.cursor()
-
-    # Total transactions
-    cur.execute("SELECT COUNT(*) AS count FROM transactions")
-    total_tx = cur.fetchone()["count"]
-
-    # Total spent (successful deductions)
-    cur.execute("""
-        SELECT COALESCE(SUM(amount), 0) AS spent
-        FROM transactions
-        WHERE status = 'success'
-    """)
-    total_spent = cur.fetchone()["spent"]
-
-    # Total topups
-    cur.execute("""
-        SELECT COALESCE(SUM(amount), 0) AS topup
-        FROM transactions
-        WHERE status = 'topup'
-    """)
-    total_topups = cur.fetchone()["topup"]
-
-    # Blocked cards
-    cur.execute("SELECT COUNT(*) AS blocked FROM students WHERE blocked = TRUE")
-    blocked_cards = cur.fetchone()["blocked"]
-
-    # Active cards
-    cur.execute("SELECT COUNT(*) AS active FROM students WHERE blocked = FALSE")
-    active_cards = cur.fetchone()["active"]
-
-    con.close()
-
-    return jsonify({
-        "status": "success",
-        "metrics": {
-            "total_transactions": total_tx,
-            "total_spent": float(total_spent),
-            "total_topups": float(total_topups),
-            "blocked_cards": blocked_cards,
-            "active_cards": active_cards
-        }
-    })
-
 # ----------------------------------------------------------
-# ADMIN ANALYTICS
+# ADMIN ANALYTICS (SINGLE SOURCE OF TRUTH)
 # ----------------------------------------------------------
 @app.route("/api/admin/analytics")
 def admin_analytics():
     con = get_db()
     cur = con.cursor()
 
+    # Students
     cur.execute("SELECT COUNT(*) AS total FROM students")
     total_students = cur.fetchone()["total"]
 
-    cur.execute("SELECT COUNT(*) AS blocked FROM students WHERE blocked=TRUE")
+    cur.execute("SELECT COUNT(*) AS blocked FROM students WHERE blocked = TRUE")
     blocked_students = cur.fetchone()["blocked"]
 
-    cur.execute("SELECT COALESCE(SUM(balance),0) AS total_balance FROM students")
+    cur.execute("SELECT COUNT(*) AS active FROM students WHERE blocked = FALSE")
+    active_students = cur.fetchone()["active"]
+
+    cur.execute("SELECT COALESCE(SUM(balance), 0) AS total_balance FROM students")
     total_balance = cur.fetchone()["total_balance"]
 
+    # Transactions
+    cur.execute("SELECT COUNT(*) AS total_tx FROM transactions")
+    total_transactions = cur.fetchone()["total_tx"]
+
     cur.execute("""
-        SELECT COALESCE(SUM(amount),0) AS total_spent
+        SELECT COALESCE(SUM(amount), 0) AS total_spent
         FROM transactions
-        WHERE status='success'
+        WHERE status = 'success'
     """)
     total_spent = cur.fetchone()["total_spent"]
 
-    cur.execute("SELECT COUNT(*) AS total_tx FROM transactions")
-    total_tx = cur.fetchone()["total_tx"]
+    cur.execute("""
+        SELECT COALESCE(SUM(amount), 0) AS total_topups
+        FROM transactions
+        WHERE status = 'topup'
+    """)
+    total_topups = cur.fetchone()["total_topups"]
 
     con.close()
 
@@ -464,10 +430,12 @@ def admin_analytics():
         "status": "success",
         "analytics": {
             "total_students": total_students,
+            "active_students": active_students,
             "blocked_students": blocked_students,
             "total_balance": float(total_balance),
+            "total_transactions": total_transactions,
             "total_spent": float(total_spent),
-            "total_transactions": total_tx
+            "total_topups": float(total_topups)
         }
     })
 
