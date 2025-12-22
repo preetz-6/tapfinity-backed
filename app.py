@@ -336,8 +336,13 @@ def deduct():
         con.close()
         return jsonify({"ok":False}),403
 
+    # 🔧 FIX: convert Decimal → float
+    daily_spent = float(s["daily_spent"])
+    daily_limit = float(s["daily_limit"])
+    balance = float(s["balance"])
+
     # ⚠️ LIMIT CHECK
-    if s["daily_spent"] + amt > s["daily_limit"]:
+    if daily_spent + amt > daily_limit:
         block_until = datetime.now() + timedelta(minutes=1)
         cur.execute("""
             UPDATE students
@@ -349,10 +354,10 @@ def deduct():
         send_whatsapp(
             s["phone"],
             f"""TapFinity 🚫
-Daily limit exceeded (₹{s['daily_limit']})
+Daily limit exceeded (₹{daily_limit})
 
 Card blocked temporarily
-Balance: ₹{s['balance']}
+Balance: ₹{balance}
 Auto-unblock in 1 minute
 Resets at midnight"""
         )
@@ -362,16 +367,19 @@ Resets at midnight"""
         return jsonify({"ok":False}),400
 
     # ⚠️ ₹900 WARNING
-    if s["daily_spent"] >= 900 and not s["warned"]:
+    if daily_spent >= 900 and not s["warned"]:
         send_whatsapp(
             s["phone"],
             "TapFinity ⚠️\nYou have spent ₹900 today.\nDaily limit is ₹1000."
         )
-        cur.execute("UPDATE students SET warned=TRUE WHERE uid=%s",(uid,))
+        cur.execute(
+            "UPDATE students SET warned=TRUE WHERE uid=%s",
+            (uid,)
+        )
 
     # ✅ NORMAL DEDUCTION
-    new_balance = float(s["balance"]) - amt
-    new_spent = s["daily_spent"] + amt
+    new_balance = balance - amt
+    new_spent = daily_spent + amt
 
     cur.execute("""
         UPDATE students
