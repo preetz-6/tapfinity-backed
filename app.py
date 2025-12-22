@@ -5,6 +5,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import psycopg2
 import psycopg2.extras
 from twilio.rest import Client
+from datetime import date, datetime, timedelta
+
 
 app = Flask(__name__)
 CORS(app)
@@ -42,6 +44,31 @@ def send_whatsapp(phone, message):
         )
     except Exception as e:
         print("WhatsApp error:", e)
+
+def reset_daily_if_needed(cur, student):
+    today = date.today()
+    if student["last_spent_date"] != today:
+        cur.execute("""
+            UPDATE students
+            SET daily_spent=0,
+                warned=FALSE,
+                last_spent_date=%s
+            WHERE uid=%s
+        """, (today, student["uid"]))
+        student["daily_spent"] = 0
+        student["warned"] = False
+
+def auto_unblock_if_needed(cur, student):
+    if student["blocked"] and student["blocked_until"]:
+        if datetime.now() >= student["blocked_until"]:
+            cur.execute("""
+                UPDATE students
+                SET blocked=FALSE,
+                    blocked_until=NULL
+                WHERE uid=%s
+            """, (student["uid"],))
+            student["blocked"] = False
+
 
 # ----------------------------------------------------------
 # INIT DB
@@ -257,15 +284,25 @@ def verify():
     con = get_db()
     cur = con.cursor()
 
-    cur.execute("SELECT name,balance,blocked FROM students WHERE uid=%s",(uid,))
+    cur.execute("""
+        SELECT uid,name,balance,blocked,blocked_until,
+               daily_spent,daily_limit,last_spent_date,warned
+        FROM students WHERE uid=%s
+    """,(uid,))
     s = cur.fetchone()
-    con.close()
 
     if not s:
+        con.close()
         return jsonify({"ok":False,"error":"not_found"}),404
+
+    auto_unblock_if_needed(cur, s)
+    con.commit()
+
     if s["blocked"]:
+        con.close()
         return jsonify({"ok":False,"error":"blocked"}),403
 
+    con.close()
     return jsonify({"ok":True,"name":s["name"],"balance":float(s["balance"])})
 
 # ----------------------------------------------------------
@@ -279,26 +316,74 @@ def deduct():
 
     con = get_db()
     cur = con.cursor()
-    cur.execute("SELECT balance, blocked, phone FROM students WHERE uid=%s", (uid,))
+
+    cur.execute("""
+        SELECT uid,balance,phone,blocked,blocked_until,
+               daily_spent,daily_limit,last_spent_date,warned
+        FROM students WHERE uid=%s
+    """, (uid,))
     s = cur.fetchone()
 
-    if not s or s["blocked"] or float(s["balance"]) < amt:
-        if s:
-            cur.execute(
-                "INSERT INTO transactions(uid, amount, status) VALUES(%s, %s, 'failed')",
-                (uid, amt)
-            )
-            con.commit()
+    if not s:
         con.close()
-        return jsonify({"ok": False}), 400
+        return jsonify({"ok":False}),400
 
-    balance = float(s["balance"])   # ✅ FIX
-    new_bal = balance - amt          # ✅ FIX
+    auto_unblock_if_needed(cur, s)
+    reset_daily_if_needed(cur, s)
 
-    cur.execute("UPDATE students SET balance=%s WHERE uid=%s", (new_bal, uid))
+    if s["blocked"]:
+        con.commit()
+        con.close()
+        return jsonify({"ok":False}),403
+
+    # ⚠️ LIMIT CHECK
+    if s["daily_spent"] + amt > s["daily_limit"]:
+        block_until = datetime.now() + timedelta(minutes=1)
+        cur.execute("""
+            UPDATE students
+            SET blocked=TRUE,
+                blocked_until=%s
+            WHERE uid=%s
+        """, (block_until, uid))
+
+        send_whatsapp(
+            s["phone"],
+            f"""TapFinity 🚫
+Daily limit exceeded (₹{s['daily_limit']})
+
+Card blocked temporarily
+Balance: ₹{s['balance']}
+Auto-unblock in 1 minute
+Resets at midnight"""
+        )
+
+        con.commit()
+        con.close()
+        return jsonify({"ok":False}),400
+
+    # ⚠️ ₹900 WARNING
+    if s["daily_spent"] >= 900 and not s["warned"]:
+        send_whatsapp(
+            s["phone"],
+            "TapFinity ⚠️\nYou have spent ₹900 today.\nDaily limit is ₹1000."
+        )
+        cur.execute("UPDATE students SET warned=TRUE WHERE uid=%s",(uid,))
+
+    # ✅ NORMAL DEDUCTION
+    new_balance = float(s["balance"]) - amt
+    new_spent = s["daily_spent"] + amt
+
+    cur.execute("""
+        UPDATE students
+        SET balance=%s,
+            daily_spent=%s,
+            last_spent_date=%s
+        WHERE uid=%s
+    """, (new_balance, new_spent, date.today(), uid))
+
     cur.execute(
-        "INSERT INTO transactions(uid, amount, status) VALUES(%s, %s, 'success')",
-        (uid, amt)
+        "INSERT INTO transactions(uid,amount,status) VALUES(%s,%s,'success')",
+        (uid,amt)
     )
 
     con.commit()
@@ -306,10 +391,10 @@ def deduct():
 
     send_whatsapp(
         s["phone"],
-        f"TapFinity 💸\n₹{amt} spent\nBalance: ₹{new_bal}"
+        f"TapFinity 💸\n₹{amt} spent\nBalance: ₹{new_balance}"
     )
 
-    return jsonify({"ok": True, "balance": new_bal})
+    return jsonify({"ok":True,"balance":new_balance})
 
 # ----------------------------------------------------------
 # ADD BALANCE (ADMIN)
